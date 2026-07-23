@@ -866,6 +866,8 @@ func _card_kind_label(card: Dictionary) -> String:
 			label = "全"
 		elif effect == "heal" and target == "all_players":
 			label = "全"
+		elif effect == "reflect" and _is_full_reflect(card):
+			label = "完反"
 		else:
 			label = _effect_short_label(effect)
 		if label not in labels:
@@ -887,16 +889,25 @@ func _uses_contextual_roles(card: Dictionary) -> bool:
 
 func _card_category(card: Dictionary) -> Dictionary:
 	# カードを用途で1つの種類に分類する。攻撃を最優先にし、色と短いラベルを返す。
-	# バトル画面で「これは武器か防具か奇跡か」を一目で見分けられるようにするための分類。
+	# バトル画面で種類を一目で見分けられるようにするための分類。
+	# 反射は挙動が違うので「反射（攻撃を跳ね返す）」と
+	# 「完全反射（奇跡・即死なども全部跳ね返す＝full_reflect）」を別種類として扱う。
 	if _card_has_effect(card, "attack"):
 		return {"label": "武器", "color": Color("#e0574f")}
 	if _card_has_effect(card, "buff"):
 		return {"label": "攻＋", "color": Color("#ef8a2b")}
-	if _card_has_effect(card, "guard") or _card_has_effect(card, "reflect"):
+	if _card_has_effect(card, "reflect"):
+		if _is_full_reflect(card):
+			return {"label": "完全反射", "color": Color("#7c3aed")}
+		return {"label": "反射", "color": Color("#06b6d4")}
+	if _card_has_effect(card, "guard"):
 		return {"label": "防具", "color": Color("#3f86c4")}
 	if _card_has_effect(card, "heal"):
 		return {"label": "奇跡", "color": Color("#2fae6a")}
-	return {"label": "その他", "color": Color("#9a5fd0")}
+	return {"label": "その他", "color": Color("#8a8f96")}
+
+func _is_full_reflect(card: Dictionary) -> bool:
+	return _card_has_effect(card, "reflect") and "full_reflect" in card.get("tags", [])
 
 func _make_category_chip(category: Dictionary) -> Label:
 	# カード絵の左上に重ねる、種類を示す色付きの小さなラベル。
@@ -942,7 +953,7 @@ func _card_value_text(card: Dictionary) -> String:
 	for effect_index: int in range(effects.size()):
 		var effect_entry: Dictionary = effects[effect_index]
 		var effect: String = String(effect_entry.get("effect", ""))
-		var part: String = _effect_short_label(effect)
+		var part: String = "完反" if (effect == "reflect" and _is_full_reflect(card)) else _effect_short_label(effect)
 		if effect != "instant_death":
 			part += " %d" % int(effect_entry.get("power", 0))
 		if random_mode:

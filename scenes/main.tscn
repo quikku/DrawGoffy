@@ -244,6 +244,11 @@ text = "効果"
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="FullReflect" type="CheckBox" parent="Root/Tabs/Cards/Editor/EffectRow"]
+visible = false
+layout_mode = 2
+text = "完全反射"
+
 [node name="NumberAttrRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
 layout_mode = 2
 theme_override_constants/separation = 8

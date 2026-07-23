@@ -22,6 +22,7 @@ extends Control
 @onready var card_type: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/CardType
 @onready var target: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/Target
 @onready var effect: OptionButton = $Root/Tabs/Cards/Editor/EffectRow/Effect
+@onready var full_reflect_check: CheckBox = $Root/Tabs/Cards/Editor/EffectRow/FullReflect
 @onready var power: SpinBox = $Root/Tabs/Cards/Editor/NumberAttrRow/Power
 @onready var attribute: OptionButton = $Root/Tabs/Cards/Editor/NumberAttrRow/Attribute
 @onready var chance: SpinBox = $Root/Tabs/Cards/Editor/ProbabilityRow/Chance
@@ -55,6 +56,7 @@ func _ready() -> void:
 	_setup_options()
 	_apply_help_tooltips()
 	_refresh_second_effect_controls()
+	_refresh_full_reflect_visibility()
 	_connect_signals()
 	_refresh_cards()
 	_log("カードはイラスト画像込みでホストへ送り、ホストが全員へ配り直します。")
@@ -91,8 +93,8 @@ func _connect_signals() -> void:
 	choose_image_button.pressed.connect(func(): image_file_dialog.popup_centered_ratio(0.8))
 	image_file_dialog.file_selected.connect(_on_image_selected)
 	card_type.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
-	effect.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
-	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
+	effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
+	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
 	target.item_selected.connect(func(_index): _update_rarity_preview())
 	second_target.item_selected.connect(func(_index): _update_rarity_preview())
 	power.value_changed.connect(func(_v): _update_rarity_preview())
@@ -101,7 +103,7 @@ func _connect_signals() -> void:
 	effect_mode.item_selected.connect(func(_index): _update_rarity_preview())
 	weight1.value_changed.connect(func(_v): _update_rarity_preview())
 	second_weight.value_changed.connect(func(_v): _update_rarity_preview())
-	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _update_rarity_preview())
+	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
 	card_list.item_selected.connect(_load_card_at)
 	Net.status_changed.connect(_log)
 	Net.players_changed.connect(_refresh_players)
@@ -131,6 +133,14 @@ func _save_current_card() -> void:
 			"chance": 100,
 			"weight": int(second_weight.value),
 		})
+	# 完全反射はチェックボックスで on/off する。反射カードのときだけ
+	# tags の "full_reflect" を追従させ、タグ欄への手打ちを不要にする。
+	var tags: Array[String] = _parse_tags(tags_edit.text)
+	if full_reflect_check.visible:
+		if full_reflect_check.button_pressed and "full_reflect" not in tags:
+			tags.append("full_reflect")
+		elif not full_reflect_check.button_pressed:
+			tags.erase("full_reflect")
 	var card: Dictionary = {
 		"id": selected_card_id,
 		"name": name_edit.text.strip_edges(),
@@ -144,7 +154,7 @@ func _save_current_card() -> void:
 		"chance": int(chance.value),
 		"effect_mode": _option_key(effect_mode),
 		"effects": effects,
-		"tags": _parse_tags(tags_edit.text),
+		"tags": tags,
 	}
 	var saved: Dictionary = CardStore.upsert_card(card)
 	selected_card_id = String(saved["id"])
@@ -249,6 +259,8 @@ func _load_card_at(index: int) -> void:
 		second_weight.value = int(second.get("weight", 1))
 	_refresh_second_effect_controls()
 	tags_edit.text = ",".join(card["tags"])
+	full_reflect_check.button_pressed = "full_reflect" in card.get("tags", [])
+	_refresh_full_reflect_visibility()
 	# 種別に応じた対象の有効/無効などを、読み込んだ内容に合わせて整える。
 	_apply_type_defaults()
 	_update_rarity_preview()
@@ -270,6 +282,8 @@ func _clear_editor() -> void:
 	_select_option(effect_mode, "all")
 	_select_option(second_effect, "heal")
 	_select_option(second_target, "self")
+	full_reflect_check.button_pressed = false
+	_refresh_full_reflect_visibility()
 	_refresh_second_effect_controls()
 	image_preview.texture = null
 	image_name.text = "画像なし"
@@ -315,6 +329,15 @@ func _refresh_second_effect_controls() -> void:
 	second_target.disabled = not enabled
 	second_power.editable = enabled
 	second_weight.editable = enabled
+
+func _refresh_full_reflect_visibility() -> void:
+	# 反射を選んだときだけ「完全反射」チェックを見せる。
+	var is_reflect: bool = _option_key(effect) == "reflect"
+	if second_effect_enabled.button_pressed and _option_key(second_effect) == "reflect":
+		is_reflect = true
+	full_reflect_check.visible = is_reflect
+	if not is_reflect:
+		full_reflect_check.button_pressed = false
 
 func _update_rarity_preview() -> void:
 	var temp: Dictionary = {
@@ -500,6 +523,7 @@ func _apply_help_tooltips() -> void:
 	card_type.tooltip_text = "武器・防具・奇跡・特殊のどれかを選びます。"
 	target.tooltip_text = "効果が誰に向くか（敵1体・自分・敵全体・全員）。"
 	effect.tooltip_text = "カードの効果（攻撃・防御・回復など）。"
+	full_reflect_check.tooltip_text = "オンにすると攻撃だけでなく、奇跡・即死などサポート系も含めて全部を跳ね返す「完全反射」になります。"
 	power.tooltip_text = "効果の強さ。攻撃なら威力、回復なら回復量。"
 	attribute.tooltip_text = "属性。防御できる相手や相性に影響します（回復のみは属性なし）。"
 	chance.tooltip_text = "この効果が発動する確率（%）。"

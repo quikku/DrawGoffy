@@ -10,13 +10,13 @@ func _render_preview() -> void:
 		{"id": "1", "name": "石つぶて", "description": "燃える石が尾を引き、狙った相手へまっすぐ飛んでいく。長めのフレーバーテキスト表示確認用。", "type": "weapon", "target": "enemy", "effect": "attack", "power": 8, "attribute": "fire", "image_path": ""},
 		{"id": "2", "name": "銀の剣", "type": "weapon", "target": "enemy", "effect": "attack", "power": 12, "attribute": "water", "image_path": ""},
 		{"id": "3", "name": "木の盾", "type": "armor", "target": "self", "effect": "guard", "power": 10, "attribute": "water", "image_path": ""},
-		{"id": "4", "name": "炎の盾", "type": "armor", "target": "self", "effect": "reflect", "power": 16, "attribute": "fire", "image_path": ""},
+		{"id": "4", "name": "炎の盾", "type": "armor", "target": "self", "effect": "reflect", "power": 16, "attribute": "fire", "image_path": "", "tags": ["full_reflect"]},
 		{"id": "5", "name": "祝福の水", "type": "miracle", "target": "self", "effect": "heal", "power": 12, "attribute": "light", "image_path": ""},
 		{"id": "6", "name": "鉄の槍", "type": "weapon", "target": "enemy", "effect": "attack", "power": 7, "attribute": "wood", "image_path": ""},
 		{"id": "7", "name": "黒い鎧", "type": "armor", "target": "self", "effect": "guard", "power": 14, "attribute": "earth", "image_path": ""},
 		{"id": "8", "name": "風の刃", "type": "weapon", "target": "enemy", "effect": "attack", "power": 9, "attribute": "light", "image_path": ""},
 		{"id": "9", "name": "閃光", "type": "weapon", "target": "enemy", "effect": "attack", "power": 11, "attribute": "dark", "image_path": ""},
-		{"id": "10", "name": "小盾", "type": "armor", "target": "self", "effect": "guard", "power": 5, "attribute": "none", "image_path": ""},
+		{"id": "10", "name": "小盾", "type": "armor", "target": "self", "effect": "reflect", "power": 5, "attribute": "none", "image_path": ""},
 	]
 	var learned_miracles: Array = [
 		{"id": "m1", "name": "覚えた祝福", "description": "使用済みの奇跡", "type": "miracle", "target": "self", "effect": "heal", "power": 12, "image_path": ""},
