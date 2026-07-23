@@ -1,0 +1,296 @@
+[gd_scene load_steps=3 format=3 uid="uid://drawgoffy_main"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/battle_ui.tscn" id="2_battle"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+text = "Draw Goffy"
+theme_override_font_sizes/font_size = 28
+
+[node name="Tabs" type="TabContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="Lobby" type="VBoxContainer" parent="Root/Tabs"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NameRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NameLabel" type="Label" parent="Root/Tabs/Lobby/NameRow"]
+layout_mode = 2
+text = "名前"
+
+[node name="PlayerName" type="LineEdit" parent="Root/Tabs/Lobby/NameRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "プレイヤー名（20文字以内）"
+max_length = 20
+
+[node name="ConnectRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HostButton" type="Button" parent="Root/Tabs/Lobby/ConnectRow"]
+layout_mode = 2
+text = "ホスト開始"
+
+[node name="ConnectSpacer" type="Control" parent="Root/Tabs/Lobby/ConnectRow"]
+custom_minimum_size = Vector2(24, 0)
+layout_mode = 2
+
+[node name="JoinAddress" type="LineEdit" parent="Root/Tabs/Lobby/ConnectRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "ホストIP"
+
+[node name="JoinPort" type="SpinBox" parent="Root/Tabs/Lobby/ConnectRow"]
+layout_mode = 2
+min_value = 1.0
+max_value = 65535.0
+value = 32145.0
+
+[node name="JoinButton" type="Button" parent="Root/Tabs/Lobby/ConnectRow"]
+layout_mode = 2
+text = "参加"
+
+[node name="ActionRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SubmitCardsButton" type="Button" parent="Root/Tabs/Lobby/ActionRow"]
+layout_mode = 2
+text = "カードを送る（画像込み）"
+
+[node name="StartGameButton" type="Button" parent="Root/Tabs/Lobby/ActionRow"]
+layout_mode = 2
+text = "ゲーム開始"
+
+[node name="DebugBotButton" type="Button" parent="Root/Tabs/Lobby/ActionRow"]
+layout_mode = 2
+text = "デバッグ敵追加"
+
+[node name="NetworkInfo" type="RichTextLabel" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+fit_content = true
+
+[node name="Players" type="ItemList" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Cards" type="HBoxContainer" parent="Root/Tabs"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CardList" type="ItemList" parent="Root/Tabs/Cards"]
+layout_mode = 2
+custom_minimum_size = Vector2(320, 0)
+size_flags_vertical = 3
+
+[node name="Editor" type="VBoxContainer" parent="Root/Tabs/Cards"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Name" type="LineEdit" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+placeholder_text = "名前"
+
+[node name="Description" type="TextEdit" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 64)
+placeholder_text = "説明"
+
+[node name="ImageRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+
+[node name="ChooseImageButton" type="Button" parent="Root/Tabs/Cards/Editor/ImageRow"]
+layout_mode = 2
+text = "イラストを選ぶ"
+
+[node name="ImageName" type="Label" parent="Root/Tabs/Cards/Editor/ImageRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "画像なし"
+text_overrun_behavior = 3
+
+[node name="ImagePreview" type="TextureRect" parent="Root/Tabs/Cards/Editor"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_horizontal = 0
+expand_mode = 1
+stretch_mode = 6
+
+[node name="TypeRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TypeLabel" type="Label" parent="Root/Tabs/Cards/Editor/TypeRow"]
+layout_mode = 2
+text = "種類"
+
+[node name="CardType" type="OptionButton" parent="Root/Tabs/Cards/Editor/TypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TargetLabel" type="Label" parent="Root/Tabs/Cards/Editor/TypeRow"]
+layout_mode = 2
+text = "対象"
+
+[node name="Target" type="OptionButton" parent="Root/Tabs/Cards/Editor/TypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EffectRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+
+[node name="EffectLabel" type="Label" parent="Root/Tabs/Cards/Editor/EffectRow"]
+layout_mode = 2
+text = "効果"
+
+[node name="Effect" type="OptionButton" parent="Root/Tabs/Cards/Editor/EffectRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NumberAttrRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PowerLabel" type="Label" parent="Root/Tabs/Cards/Editor/NumberAttrRow"]
+layout_mode = 2
+text = "数値"
+
+[node name="Power" type="SpinBox" parent="Root/Tabs/Cards/Editor/NumberAttrRow"]
+layout_mode = 2
+min_value = -999.0
+max_value = 999.0
+value = 10.0
+
+[node name="AttributeLabel" type="Label" parent="Root/Tabs/Cards/Editor/NumberAttrRow"]
+layout_mode = 2
+text = "属性"
+
+[node name="Attribute" type="OptionButton" parent="Root/Tabs/Cards/Editor/NumberAttrRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ProbabilityRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChanceLabel" type="Label" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+text = "発動率%"
+
+[node name="Chance" type="SpinBox" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 100.0
+
+[node name="ModeLabel" type="Label" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+text = "複数効果"
+
+[node name="EffectMode" type="OptionButton" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Weight1Label" type="Label" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+text = "効果1比率"
+
+[node name="Weight1" type="SpinBox" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
+layout_mode = 2
+min_value = 1.0
+max_value = 99.0
+value = 1.0
+
+[node name="SecondEffectRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Enabled" type="CheckBox" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+text = "効果2"
+
+[node name="Effect" type="OptionButton" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Target" type="OptionButton" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Power" type="SpinBox" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+min_value = -999.0
+max_value = 999.0
+value = 5.0
+
+[node name="WeightLabel" type="Label" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+text = "比率"
+
+[node name="Weight" type="SpinBox" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+min_value = 1.0
+max_value = 99.0
+value = 1.0
+
+[node name="Tags" type="LineEdit" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+placeholder_text = "タグ カンマ区切り"
+
+[node name="SaveCardButton" type="Button" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+text = "カード保存"
+
+[node name="RarityLabel" type="Label" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+text = "レアリティ: ―"
+
+[node name="NewCardButton" type="Button" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+text = "新規カード"
+
+[node name="DeleteCardButton" type="Button" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+text = "このカードを削除"
+
+[node name="ImageFileDialog" type="FileDialog" parent="."]
+title = "カードのイラストを選ぶ"
+initial_position = 2
+size = Vector2i(900, 600)
+access = 2
+filters = PackedStringArray("*.png,*.jpg,*.jpeg,*.webp;画像ファイル")
+
+[node name="BattleScreen" parent="." instance=ExtResource("2_battle")]
+visible = false
+layout_mode = 1

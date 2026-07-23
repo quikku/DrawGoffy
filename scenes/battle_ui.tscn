@@ -1,0 +1,430 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/battle_ui.gd" id="1_battle"]
+
+[sub_resource type="Shader" id="Shader_battle_bg"]
+code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec2 uv = UV;\n\tfloat cloud = sin(uv.x * 9.0 + sin(uv.y * 7.0)) * 0.5;\n\tcloud += sin(uv.y * 12.0 - uv.x * 3.0) * 0.3;\n\tcloud += sin((uv.x + uv.y) * 19.0) * 0.2;\n\tcloud = cloud * 0.5 + 0.5;\n\tvec3 pale = vec3(0.78, 1.0, 0.96);\n\tvec3 aqua = vec3(0.34, 0.82, 0.74);\n\tvec3 color = mix(pale, aqua, cloud * 0.42);\n\tCOLOR = vec4(color, 1.0);\n}\n"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_battle_bg"]
+shader = SubResource("Shader_battle_bg")
+
+[node name="BattleScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_battle")
+
+[node name="Background" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_battle_bg")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 42.0
+grow_horizontal = 2
+
+[node name="TopRow" type="HBoxContainer" parent="TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="LeaveButton" type="Button" parent="TopBar/TopRow"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+text = "←"
+theme_override_font_sizes/font_size = 25
+
+[node name="ModeLabel" type="Label" parent="TopBar/TopRow"]
+layout_mode = 2
+text = "対戦"
+theme_override_font_sizes/font_size = 21
+
+[node name="Spacer" type="Control" parent="TopBar/TopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GameTitle" type="Label" parent="TopBar/TopRow"]
+layout_mode = 2
+text = "DRAW G.F."
+theme_override_font_sizes/font_size = 20
+
+[node name="Spacer2" type="Control" parent="TopBar/TopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RuleLabel" type="Label" parent="TopBar/TopRow"]
+layout_mode = 2
+text = "カードバトル"
+theme_override_font_sizes/font_size = 18
+
+[node name="OwnStatus" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 58.0
+offset_right = 360.0
+offset_bottom = 108.0
+
+[node name="Label" type="Label" parent="OwnStatus"]
+layout_mode = 2
+text = "● プレイヤー  HP 40"
+theme_override_font_sizes/font_size = 20
+
+[node name="SelectionArrow" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 370.0
+offset_top = 55.0
+offset_right = 420.0
+offset_bottom = 108.0
+text = "➜"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.33, 0.55, 1)
+theme_override_font_sizes/font_size = 36
+
+[node name="TargetStatus" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 430.0
+offset_top = 58.0
+offset_right = 760.0
+offset_bottom = 108.0
+
+[node name="Label" type="Label" parent="TargetStatus"]
+layout_mode = 2
+text = "● 対象"
+theme_override_font_sizes/font_size = 20
+
+[node name="SelectedCard" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 122.0
+offset_right = 350.0
+offset_bottom = 226.0
+
+[node name="Row" type="HBoxContainer" parent="SelectedCard"]
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="Art" type="TextureRect" parent="SelectedCard/Row"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="NoArt" type="Label" parent="SelectedCard/Row/Art"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "絵なし"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Details" type="VBoxContainer" parent="SelectedCard/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="SelectedCard/Row/Details"]
+layout_mode = 2
+text = "カード名"
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 18
+
+[node name="Description" type="Label" parent="SelectedCard/Row/Details"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "説明"
+autowrap_mode = 2
+
+[node name="Value" type="Label" parent="SelectedCard/Row/Details"]
+layout_mode = 2
+text = "攻 8"
+theme_override_font_sizes/font_size = 21
+
+[node name="AttackCards" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 122.0
+offset_right = 350.0
+offset_bottom = 342.0
+mouse_filter = 2
+
+[node name="DefenseCards" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 430.0
+offset_top = 122.0
+offset_right = 760.0
+offset_bottom = 342.0
+mouse_filter = 2
+
+[node name="AttackTotalPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 28.0
+offset_top = 350.0
+offset_right = 350.0
+offset_bottom = 402.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="AttackTotalPanel"]
+layout_mode = 2
+text = "攻撃合計 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="DefenseTotalPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 430.0
+offset_top = 350.0
+offset_right = 760.0
+offset_bottom = 402.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="DefenseTotalPanel"]
+layout_mode = 2
+text = "防御合計 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="CardUseButton" type="Button" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+offset_left = 18.0
+offset_top = 115.0
+offset_right = 360.0
+offset_bottom = 365.0
+focus_mode = 0
+mouse_default_cursor_shape = 2
+tooltip_text = "クリックして発動"
+
+[node name="Opponents" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -430.0
+offset_top = 84.0
+offset_right = -28.0
+offset_bottom = 360.0
+grow_horizontal = 0
+theme_override_constants/separation = 12
+
+[node name="HoverDetailHeader" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -430.0
+offset_top = 370.0
+offset_right = -28.0
+offset_bottom = 416.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="HoverDetailHeader"]
+layout_mode = 2
+text = "起こした奇跡"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="HoverCardDetail" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -570.0
+offset_right = -28.0
+offset_bottom = -310.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="HoverCardDetail"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Row" type="HBoxContainer" parent="HoverCardDetail/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Art" type="TextureRect" parent="HoverCardDetail/Margin/Row"]
+custom_minimum_size = Vector2(156, 156)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="NoArt" type="Label" parent="HoverCardDetail/Margin/Row/Art"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "絵なし"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Details" type="VBoxContainer" parent="HoverCardDetail/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
+layout_mode = 2
+text = "カード名"
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 22
+
+[node name="AttributeValue" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
+layout_mode = 2
+text = "無　攻 8"
+theme_override_font_sizes/font_size = 20
+
+[node name="Description" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "フレーバーテキスト"
+vertical_alignment = 1
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 17
+
+[node name="CenterMessage" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -72.0
+offset_right = 240.0
+offset_bottom = 28.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "ゲーム開始待ち"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="ResultPanel" type="PanelContainer" parent="."]
+visible = false
+z_index = 100
+layout_mode = 1
+anchors_preset = 0
+offset_left = 40.0
+offset_top = 238.0
+offset_right = 350.0
+offset_bottom = 338.0
+mouse_filter = 2
+
+[node name="Result" type="Label" parent="ResultPanel"]
+layout_mode = 2
+text = "6\nダメージ"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="ActionButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = -344.0
+offset_right = 312.0
+offset_bottom = -294.0
+grow_vertical = 0
+text = "選択カードを使う"
+theme_override_font_sizes/font_size = 23
+
+[node name="PassDefenseButton" type="Button" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 326.0
+offset_top = -344.0
+offset_right = 566.0
+offset_bottom = -294.0
+grow_vertical = 0
+text = "防御せず受ける"
+theme_override_font_sizes/font_size = 18
+
+[node name="HandPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_right = 820.0
+offset_top = -180.0
+offset_bottom = -34.0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="HandPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="Scroll" type="ScrollContainer" parent="HandPanel/Margin"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 0
+
+[node name="Hand" type="Control" parent="HandPanel/Margin/Scroll"]
+custom_minimum_size = Vector2(790, 126)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BottomBar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -34.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Status" type="Label" parent="BottomBar"]
+layout_mode = 2
+text = "接続中"
+theme_override_font_sizes/font_size = 16
