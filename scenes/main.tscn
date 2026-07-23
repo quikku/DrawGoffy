@@ -1,7 +1,26 @@
-[gd_scene load_steps=3 format=3 uid="uid://drawgoffy_main"]
+[gd_scene load_steps=5 format=3 uid="uid://drawgoffy_main"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/battle_ui.tscn" id="2_battle"]
+
+[sub_resource type="Shader" id="Shader_main_bg"]
+code = "shader_type canvas_item;
+
+void fragment() {
+	vec2 uv = UV;
+	float cloud = sin(uv.x * 9.0 + sin(uv.y * 7.0)) * 0.5;
+	cloud += sin(uv.y * 12.0 - uv.x * 3.0) * 0.3;
+	cloud += sin((uv.x + uv.y) * 19.0) * 0.2;
+	cloud = cloud * 0.5 + 0.5;
+	vec3 pale = vec3(0.82, 1.0, 0.97);
+	vec3 aqua = vec3(0.40, 0.84, 0.77);
+	vec3 color = mix(pale, aqua, cloud * 0.38);
+	COLOR = vec4(color, 1.0);
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_main_bg"]
+shader = SubResource("Shader_main_bg")
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -11,6 +30,16 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
+
+[node name="Background" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_main_bg")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="Root" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -35,7 +64,13 @@ current_tab = 0
 
 [node name="Lobby" type="VBoxContainer" parent="Root/Tabs"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
+
+[node name="Step1Label" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "① 名前を入れる"
+theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
+theme_override_font_sizes/font_size = 18
 
 [node name="NameRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
 layout_mode = 2
@@ -50,6 +85,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "プレイヤー名（20文字以内）"
 max_length = 20
+
+[node name="Step2Label" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "② 部屋を作る（ホスト）か、IPを入れて参加する"
+theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
+theme_override_font_sizes/font_size = 18
 
 [node name="ConnectRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
 layout_mode = 2
@@ -78,6 +119,12 @@ value = 32145.0
 layout_mode = 2
 text = "参加"
 
+[node name="Step3Label" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "③ カードを送り、ホストがゲームを開始する"
+theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
+theme_override_font_sizes/font_size = 18
+
 [node name="ActionRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
 layout_mode = 2
 theme_override_constants/separation = 8
@@ -94,11 +141,30 @@ text = "ゲーム開始"
 layout_mode = 2
 text = "デバッグ敵追加"
 
+[node name="HintLabel" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "参加者は「カードを送る」まで。ホストは全員のカードが届いたら「ゲーム開始」を押すと全員がバトル画面へ移ります。"
+theme_override_colors/font_color = Color(0.43, 0.51, 0.54, 1)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 2
+
+[node name="LogLabel" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "通信ログ"
+theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
+theme_override_font_sizes/font_size = 15
+
 [node name="NetworkInfo" type="RichTextLabel" parent="Root/Tabs/Lobby"]
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 fit_content = true
+
+[node name="PlayersLabel" type="Label" parent="Root/Tabs/Lobby"]
+layout_mode = 2
+text = "参加者"
+theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
+theme_override_font_sizes/font_size = 15
 
 [node name="Players" type="ItemList" parent="Root/Tabs/Lobby"]
 layout_mode = 2
