@@ -8,9 +8,10 @@ code = "shader_type canvas_item;
 
 void fragment() {
 	vec2 uv = UV;
-	float cloud = sin(uv.x * 9.0 + sin(uv.y * 7.0)) * 0.5;
-	cloud += sin(uv.y * 12.0 - uv.x * 3.0) * 0.3;
-	cloud += sin((uv.x + uv.y) * 19.0) * 0.2;
+	float time = TIME * 0.08;
+	float cloud = sin((uv.x + time) * 9.0 + sin((uv.y - time * 0.5) * 7.0)) * 0.5;
+	cloud += sin((uv.y - time) * 12.0 - (uv.x + time * 0.4) * 3.0) * 0.3;
+	cloud += sin((uv.x + uv.y + time * 0.3) * 19.0) * 0.2;
 	cloud = cloud * 0.5 + 0.5;
 	vec3 pale = vec3(0.82, 1.0, 0.97);
 	vec3 aqua = vec3(0.40, 0.84, 0.77);

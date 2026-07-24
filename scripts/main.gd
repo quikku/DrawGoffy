@@ -133,14 +133,19 @@ func _save_current_card() -> void:
 			"chance": 100,
 			"weight": int(second_weight.value),
 		})
-	# 完全反射はチェックボックスで on/off する。反射カードのときだけ
-	# tags の "full_reflect" を追従させ、タグ欄への手打ちを不要にする。
+	# 完全反射はチェックボックスで on/off する。反射効果を外した場合も
+	# 古い "full_reflect" タグが残らないよう、効果データを基準に同期する。
 	var tags: Array[String] = _parse_tags(tags_edit.text)
-	if full_reflect_check.visible:
-		if full_reflect_check.button_pressed and "full_reflect" not in tags:
+	var has_reflect := false
+	for effect_entry: Dictionary in effects:
+		if String(effect_entry.get("effect", "")) == "reflect":
+			has_reflect = true
+			break
+	if has_reflect and full_reflect_check.button_pressed:
+		if "full_reflect" not in tags:
 			tags.append("full_reflect")
-		elif not full_reflect_check.button_pressed:
-			tags.erase("full_reflect")
+	else:
+		tags.erase("full_reflect")
 	var card: Dictionary = {
 		"id": selected_card_id,
 		"name": name_edit.text.strip_edges(),

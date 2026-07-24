@@ -801,7 +801,8 @@ func _effects_for_context(card: Dictionary, context: String) -> Array:
 	var fallback_names: Array[String] = []
 	if context == "action":
 		preferred_names = ["attack", "buff", "heal", "instant_death"]
-		fallback_names = ["guard", "reflect"]
+		# guard は事前準備として行動フェーズでも使えるが、reflect は防御専用。
+		fallback_names = ["guard"]
 	elif context == "defense":
 		preferred_names = ["guard", "reflect"]
 		if String(card.get("type", "")) == "armor":

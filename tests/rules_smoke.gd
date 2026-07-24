@@ -582,6 +582,15 @@ func _init() -> void:
 	assert(not battle_ui._effects_for_context(healing_armor, "action").is_empty())
 	assert(String(battle_ui._effects_for_context(healing_armor, "action")[0]["effect"]) == "heal")
 	assert(String(battle_ui._effects_for_context(healing_armor, "defense")[0]["effect"]) == "guard")
+	var reflect_only: Dictionary = {
+		"type": "special", "effect": "reflect", "target": "self", "power": 0,
+	}
+	assert(not rules._can_play_in_action(reflect_only))
+	assert(rules._effects_for_context(reflect_only, "action").is_empty())
+	assert(not rules._effects_for_context(reflect_only, "defense").is_empty())
+	assert(not battle_ui._can_play_in_action(reflect_only))
+	assert(battle_ui._effects_for_context(reflect_only, "action").is_empty())
+	assert(not battle_ui._effects_for_context(reflect_only, "defense").is_empty())
 	assert(battle_ui._random_effect_percent(roulette, 0) == 17)
 	assert(battle_ui._random_effect_percent(roulette, 1) == 83)
 	assert("死 17%" in battle_ui._card_value_text(roulette))
