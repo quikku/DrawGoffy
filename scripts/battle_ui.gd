@@ -56,6 +56,7 @@ var selected_defense_cards: Array[Dictionary] = []
 var selected_action_panels: Array[PanelContainer] = []
 var selected_action_cards: Array[Dictionary] = []
 var hovered_card_id := ""
+var hover_category_chip: Label
 
 func _ready() -> void:
 	_apply_theme()
@@ -162,6 +163,9 @@ func _add_card(card: Dictionary, learned: bool) -> void:
 		no_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		no_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		art.add_child(no_art)
+	var category: Dictionary = _card_category(card)
+	art.add_child(_make_category_chip(category))
+	panel.set_meta("category_color", category["color"])
 	var card_is_usable: bool = _can_use_card_now(card)
 	panel.set_meta("card_usable", card_is_usable)
 	var value_label := Label.new()
@@ -219,6 +223,11 @@ func _show_hover_card(card: Dictionary, panel: PanelContainer = null) -> void:
 	var texture: Texture2D = _load_card_texture(String(card.get("image_path", "")))
 	hover_card_art.texture = texture
 	hover_card_no_art.visible = texture == null
+	if hover_category_chip != null and is_instance_valid(hover_category_chip):
+		hover_card_art.remove_child(hover_category_chip)
+		hover_category_chip.queue_free()
+	hover_category_chip = _make_category_chip(_card_category(card))
+	hover_card_art.add_child(hover_category_chip)
 	hover_card_detail.add_theme_stylebox_override("panel", _rounded_style(
 		Color("#e9ffd8"),
 		_attribute_color(card),
@@ -594,9 +603,10 @@ func _show_card_detail(card: Dictionary) -> void:
 	selected_card_no_art.visible = texture == null
 
 func _make_combat_card(card: Dictionary) -> PanelContainer:
+	var category: Dictionary = _card_category(card)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(322, 88)
-	panel.add_theme_stylebox_override("panel", _rounded_style(Color("#d9ffd4"), Color("#35aa80"), 3))
+	panel.add_theme_stylebox_override("panel", _rounded_style(Color("#eefaeb"), category["color"], 3))
 	var row := HBoxContainer.new()
 	var art := TextureRect.new()
 	art.custom_minimum_size = Vector2(76, 76)
@@ -610,6 +620,7 @@ func _make_combat_card(card: Dictionary) -> PanelContainer:
 		no_art.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		no_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		art.add_child(no_art)
+	art.add_child(_make_category_chip(category))
 	var details := VBoxContainer.new()
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var name_label := Label.new()
@@ -790,7 +801,8 @@ func _effects_for_context(card: Dictionary, context: String) -> Array:
 	var fallback_names: Array[String] = []
 	if context == "action":
 		preferred_names = ["attack", "buff", "heal", "instant_death"]
-		fallback_names = ["guard", "reflect"]
+		# guard は事前準備として行動フェーズでも使えるが、reflect は防御専用。
+		fallback_names = ["guard"]
 	elif context == "defense":
 		preferred_names = ["guard", "reflect"]
 		if String(card.get("type", "")) == "armor":
@@ -855,6 +867,8 @@ func _card_kind_label(card: Dictionary) -> String:
 			label = "全"
 		elif effect == "heal" and target == "all_players":
 			label = "全"
+		elif effect == "reflect" and _is_full_reflect(card):
+			label = "完反"
 		else:
 			label = _effect_short_label(effect)
 		if label not in labels:
@@ -873,6 +887,46 @@ func _uses_contextual_roles(card: Dictionary) -> bool:
 		elif effect_name in ["guard", "reflect"]:
 			has_defense_role = true
 	return has_action_role and has_defense_role
+
+func _card_category(card: Dictionary) -> Dictionary:
+	# カードを用途で1つの種類に分類する。攻撃を最優先にし、色と短いラベルを返す。
+	# バトル画面で種類を一目で見分けられるようにするための分類。
+	# 反射は挙動が違うので「反射（攻撃を跳ね返す）」と
+	# 「完全反射（奇跡・即死なども全部跳ね返す＝full_reflect）」を別種類として扱う。
+	if _card_has_effect(card, "attack"):
+		return {"label": "武器", "color": Color("#e0574f")}
+	if _card_has_effect(card, "buff"):
+		return {"label": "攻＋", "color": Color("#ef8a2b")}
+	if _card_has_effect(card, "reflect"):
+		if _is_full_reflect(card):
+			return {"label": "完全反射", "color": Color("#7c3aed")}
+		return {"label": "反射", "color": Color("#06b6d4")}
+	if _card_has_effect(card, "guard"):
+		return {"label": "防具", "color": Color("#3f86c4")}
+	if _card_has_effect(card, "heal"):
+		return {"label": "奇跡", "color": Color("#2fae6a")}
+	return {"label": "その他", "color": Color("#8a8f96")}
+
+func _is_full_reflect(card: Dictionary) -> bool:
+	return _card_has_effect(card, "reflect") and "full_reflect" in card.get("tags", [])
+
+func _make_category_chip(category: Dictionary) -> Label:
+	# カード絵の左上に重ねる、種類を示す色付きの小さなラベル。
+	var chip := Label.new()
+	chip.text = String(category["label"])
+	chip.position = Vector2(3, 3)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_theme_font_size_override("font_size", 13)
+	chip.add_theme_color_override("font_color", Color.WHITE)
+	var style := StyleBoxFlat.new()
+	style.bg_color = category["color"]
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 5
+	style.content_margin_right = 5
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
+	chip.add_theme_stylebox_override("normal", style)
+	return chip
 
 func _effect_short_label(effect: String) -> String:
 	match effect:
@@ -900,7 +954,7 @@ func _card_value_text(card: Dictionary) -> String:
 	for effect_index: int in range(effects.size()):
 		var effect_entry: Dictionary = effects[effect_index]
 		var effect: String = String(effect_entry.get("effect", ""))
-		var part: String = _effect_short_label(effect)
+		var part: String = "完反" if (effect == "reflect" and _is_full_reflect(card)) else _effect_short_label(effect)
 		if effect != "instant_death":
 			part += " %d" % int(effect_entry.get("power", 0))
 		if random_mode:
@@ -1074,11 +1128,15 @@ func _apply_theme() -> void:
 
 func _set_card_style(panel: PanelContainer, selected: bool, disabled: bool) -> void:
 	disabled = disabled or not bool(panel.get_meta("card_usable", true))
+	# 未選択時の枠は種類色にして、選択中はピンクで上書きする。
+	var category_color: Color = panel.get_meta("category_color", Color("#d7d0b6"))
 	var fill := Color("#fff4c9")
-	var border := Color("#f26f9e") if selected else Color("#d7d0b6")
+	var border := Color("#f26f9e") if selected else category_color
 	if disabled:
 		fill = Color("#d5ddd9")
-	var style: StyleBoxFlat = _rounded_style(fill, border, 4 if selected else 1)
+		if not selected:
+			border = Color("#b7c1bc")
+	var style: StyleBoxFlat = _rounded_style(fill, border, 4 if selected else 2)
 	style.content_margin_left = 4
 	style.content_margin_right = 4
 	style.content_margin_top = 4

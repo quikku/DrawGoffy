@@ -22,6 +22,7 @@ extends Control
 @onready var card_type: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/CardType
 @onready var target: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/Target
 @onready var effect: OptionButton = $Root/Tabs/Cards/Editor/EffectRow/Effect
+@onready var full_reflect_check: CheckBox = $Root/Tabs/Cards/Editor/EffectRow/FullReflect
 @onready var power: SpinBox = $Root/Tabs/Cards/Editor/NumberAttrRow/Power
 @onready var attribute: OptionButton = $Root/Tabs/Cards/Editor/NumberAttrRow/Attribute
 @onready var chance: SpinBox = $Root/Tabs/Cards/Editor/ProbabilityRow/Chance
@@ -51,8 +52,11 @@ const ATTRIBUTE_OPTIONS: Array = [["none", "無"], ["fire", "火"], ["water", "�
 const RARITY_LABELS: Dictionary = {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "legendary": "レジェンダリー"}
 
 func _ready() -> void:
+	_apply_ui_theme()
 	_setup_options()
+	_apply_help_tooltips()
 	_refresh_second_effect_controls()
+	_refresh_full_reflect_visibility()
 	_connect_signals()
 	_refresh_cards()
 	_log("カードはイラスト画像込みでホストへ送り、ホストが全員へ配り直します。")
@@ -89,8 +93,8 @@ func _connect_signals() -> void:
 	choose_image_button.pressed.connect(func(): image_file_dialog.popup_centered_ratio(0.8))
 	image_file_dialog.file_selected.connect(_on_image_selected)
 	card_type.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
-	effect.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
-	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
+	effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
+	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
 	target.item_selected.connect(func(_index): _update_rarity_preview())
 	second_target.item_selected.connect(func(_index): _update_rarity_preview())
 	power.value_changed.connect(func(_v): _update_rarity_preview())
@@ -99,7 +103,7 @@ func _connect_signals() -> void:
 	effect_mode.item_selected.connect(func(_index): _update_rarity_preview())
 	weight1.value_changed.connect(func(_v): _update_rarity_preview())
 	second_weight.value_changed.connect(func(_v): _update_rarity_preview())
-	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _update_rarity_preview())
+	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
 	card_list.item_selected.connect(_load_card_at)
 	Net.status_changed.connect(_log)
 	Net.players_changed.connect(_refresh_players)
@@ -129,6 +133,19 @@ func _save_current_card() -> void:
 			"chance": 100,
 			"weight": int(second_weight.value),
 		})
+	# 完全反射はチェックボックスで on/off する。反射効果を外した場合も
+	# 古い "full_reflect" タグが残らないよう、効果データを基準に同期する。
+	var tags: Array[String] = _parse_tags(tags_edit.text)
+	var has_reflect := false
+	for effect_entry: Dictionary in effects:
+		if String(effect_entry.get("effect", "")) == "reflect":
+			has_reflect = true
+			break
+	if has_reflect and full_reflect_check.button_pressed:
+		if "full_reflect" not in tags:
+			tags.append("full_reflect")
+	else:
+		tags.erase("full_reflect")
 	var card: Dictionary = {
 		"id": selected_card_id,
 		"name": name_edit.text.strip_edges(),
@@ -142,7 +159,7 @@ func _save_current_card() -> void:
 		"chance": int(chance.value),
 		"effect_mode": _option_key(effect_mode),
 		"effects": effects,
-		"tags": _parse_tags(tags_edit.text),
+		"tags": tags,
 	}
 	var saved: Dictionary = CardStore.upsert_card(card)
 	selected_card_id = String(saved["id"])
@@ -247,6 +264,8 @@ func _load_card_at(index: int) -> void:
 		second_weight.value = int(second.get("weight", 1))
 	_refresh_second_effect_controls()
 	tags_edit.text = ",".join(card["tags"])
+	full_reflect_check.button_pressed = "full_reflect" in card.get("tags", [])
+	_refresh_full_reflect_visibility()
 	# 種別に応じた対象の有効/無効などを、読み込んだ内容に合わせて整える。
 	_apply_type_defaults()
 	_update_rarity_preview()
@@ -268,6 +287,8 @@ func _clear_editor() -> void:
 	_select_option(effect_mode, "all")
 	_select_option(second_effect, "heal")
 	_select_option(second_target, "self")
+	full_reflect_check.button_pressed = false
+	_refresh_full_reflect_visibility()
 	_refresh_second_effect_controls()
 	image_preview.texture = null
 	image_name.text = "画像なし"
@@ -313,6 +334,15 @@ func _refresh_second_effect_controls() -> void:
 	second_target.disabled = not enabled
 	second_power.editable = enabled
 	second_weight.editable = enabled
+
+func _refresh_full_reflect_visibility() -> void:
+	# 反射を選んだときだけ「完全反射」チェックを見せる。
+	var is_reflect: bool = _option_key(effect) == "reflect"
+	if second_effect_enabled.button_pressed and _option_key(second_effect) == "reflect":
+		is_reflect = true
+	full_reflect_check.visible = is_reflect
+	if not is_reflect:
+		full_reflect_check.button_pressed = false
 
 func _update_rarity_preview() -> void:
 	var temp: Dictionary = {
@@ -362,3 +392,148 @@ func _log(message: String) -> void:
 	# add_text は BBCode を解釈しないので、カード名やプレイヤー名を安全に表示できる。
 	network_info.add_text("%s\n" % message)
 	network_info.scroll_to_line(network_info.get_line_count() - 1)
+
+# ---- 見た目（バトル画面と揃えた明るいテーマ） -----------------------------
+# バトル画面はコード側で独自に着色しているので、ここで作るテーマは root（ロビー／
+# カード編集）だけに割り当て、バトル画面へは影響させない。
+
+const INK := Color("#2b4650")          # 主要な文字色
+const MUTED := Color("#6d8189")        # 補助文字・プレースホルダ
+const PRIMARY := Color("#008f78")      # 主要ボタン（バトル画面と同じ緑）
+const PRIMARY_HOVER := Color("#00a894")
+const PRIMARY_PRESSED := Color("#007564")
+const SURFACE := Color("#fbfffc")      # パネル面
+const INPUT_BG := Color("#ffffff")     # 入力欄の背景
+const INPUT_BORDER := Color("#bcdcd2") # 入力欄・パネルの枠
+const FOCUS_BORDER := Color("#00a894") # フォーカス時の枠
+
+func _apply_ui_theme() -> void:
+	root.theme = _build_ui_theme()
+
+func _build_ui_theme() -> Theme:
+	var theme := Theme.new()
+	theme.default_font_size = 16
+
+	theme.set_color("font_color", "Label", INK)
+
+	# パネル類（タブの中身の下地やログ・一覧の枠に使う）
+	var surface_box: StyleBoxFlat = _flat(SURFACE, INPUT_BORDER, 1, 12, 10, 12)
+	theme.set_stylebox("panel", "PanelContainer", surface_box)
+	theme.set_stylebox("panel", "Panel", surface_box)
+
+	# 主要ボタン（ホスト開始・参加・保存など）
+	theme.set_stylebox("normal", "Button", _flat(PRIMARY, PRIMARY, 0, 9, 7, 14))
+	theme.set_stylebox("hover", "Button", _flat(PRIMARY_HOVER, PRIMARY_HOVER, 0, 9, 7, 14))
+	theme.set_stylebox("pressed", "Button", _flat(PRIMARY_PRESSED, PRIMARY_PRESSED, 0, 9, 7, 14))
+	theme.set_stylebox("disabled", "Button", _flat(Color("#cbd6d1"), Color("#cbd6d1"), 0, 9, 7, 14))
+	theme.set_stylebox("focus", "Button", _flat(Color(0, 0, 0, 0), FOCUS_BORDER, 2, 9, 7, 14))
+	theme.set_color("font_color", "Button", Color.WHITE)
+	theme.set_color("font_hover_color", "Button", Color.WHITE)
+	theme.set_color("font_pressed_color", "Button", Color.WHITE)
+	theme.set_color("font_focus_color", "Button", Color.WHITE)
+	theme.set_color("font_disabled_color", "Button", Color("#8b9a92"))
+
+	# 入力欄（名前・説明・タグ・IP など）
+	var input_box: StyleBoxFlat = _flat(INPUT_BG, INPUT_BORDER, 1, 8, 5, 9)
+	var input_focus: StyleBoxFlat = _flat(INPUT_BG, FOCUS_BORDER, 2, 8, 5, 9)
+	for input_type: String in ["LineEdit", "TextEdit"]:
+		theme.set_stylebox("normal", input_type, input_box)
+		theme.set_stylebox("focus", input_type, input_focus)
+		theme.set_stylebox("read_only", input_type, _flat(Color("#eef4f1"), INPUT_BORDER, 1, 8, 5, 9))
+		theme.set_color("font_color", input_type, INK)
+		theme.set_color("font_readonly_color", input_type, MUTED)
+		theme.set_color("caret_color", input_type, PRIMARY)
+		theme.set_color("font_selected_color", input_type, Color.WHITE)
+		theme.set_color("selection_color", input_type, Color(0.0, 0.56, 0.47, 0.35))
+	theme.set_color("font_placeholder_color", "LineEdit", MUTED)
+	theme.set_color("font_placeholder_color", "TextEdit", MUTED)
+
+	# 選択肢ボタン（種類・対象・効果・属性…）は入力欄と同じ淡い見た目にして、
+	# 主要ボタン（緑）と役割を見分けやすくする。
+	theme.set_stylebox("normal", "OptionButton", _flat(INPUT_BG, INPUT_BORDER, 1, 8, 5, 9))
+	theme.set_stylebox("hover", "OptionButton", _flat(Color("#eef8f4"), FOCUS_BORDER, 1, 8, 5, 9))
+	theme.set_stylebox("pressed", "OptionButton", _flat(Color("#e3f3ee"), FOCUS_BORDER, 1, 8, 5, 9))
+	theme.set_stylebox("disabled", "OptionButton", _flat(Color("#eef4f1"), INPUT_BORDER, 1, 8, 5, 9))
+	theme.set_stylebox("focus", "OptionButton", _flat(Color(0, 0, 0, 0), FOCUS_BORDER, 2, 8, 5, 9))
+	theme.set_color("font_color", "OptionButton", INK)
+	theme.set_color("font_hover_color", "OptionButton", INK)
+	theme.set_color("font_pressed_color", "OptionButton", INK)
+	theme.set_color("font_focus_color", "OptionButton", INK)
+	theme.set_color("font_disabled_color", "OptionButton", MUTED)
+
+	# 数値入力（SpinBox は内部で LineEdit を使うので上の設定が効く）
+	theme.set_color("font_color", "SpinBox", INK)
+
+	# チェックボックス
+	theme.set_color("font_color", "CheckBox", INK)
+	theme.set_color("font_hover_color", "CheckBox", INK)
+	theme.set_color("font_pressed_color", "CheckBox", INK)
+
+	# タブ（ロビー / カード）
+	theme.set_stylebox("panel", "TabContainer", _flat(SURFACE, INPUT_BORDER, 1, 12, 12, 12))
+	theme.set_stylebox("tab_selected", "TabContainer", _flat(PRIMARY, PRIMARY, 0, 8, 7, 18))
+	theme.set_stylebox("tab_unselected", "TabContainer", _flat(Color("#dcece7"), Color("#c7ddd6"), 1, 8, 7, 18))
+	theme.set_stylebox("tab_hovered", "TabContainer", _flat(Color("#e9f5f0"), Color("#c7ddd6"), 1, 8, 7, 18))
+	theme.set_stylebox("tabbar_background", "TabContainer", _flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0, 0))
+	theme.set_color("font_selected_color", "TabContainer", Color.WHITE)
+	theme.set_color("font_unselected_color", "TabContainer", MUTED)
+	theme.set_color("font_hovered_color", "TabContainer", INK)
+	theme.set_font_size("font_size", "TabContainer", 17)
+
+	# 一覧（カード一覧・プレイヤー一覧）
+	theme.set_stylebox("panel", "ItemList", _flat(INPUT_BG, INPUT_BORDER, 1, 10, 6, 8))
+	theme.set_stylebox("selected", "ItemList", _flat(PRIMARY, PRIMARY, 0, 7, 4, 6))
+	theme.set_stylebox("selected_focus", "ItemList", _flat(PRIMARY, PRIMARY, 0, 7, 4, 6))
+	theme.set_stylebox("hovered", "ItemList", _flat(Color("#e9f5f0"), Color(0, 0, 0, 0), 0, 7, 4, 6))
+	theme.set_stylebox("cursor", "ItemList", _flat(Color(0, 0, 0, 0), PRIMARY, 1, 7, 4, 6))
+	theme.set_stylebox("cursor_unfocused", "ItemList", _flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 7, 4, 6))
+	theme.set_color("font_color", "ItemList", INK)
+	theme.set_color("font_selected_color", "ItemList", Color.WHITE)
+	theme.set_color("font_hovered_color", "ItemList", INK)
+	theme.set_constant("v_separation", "ItemList", 4)
+
+	# ログ表示
+	theme.set_color("default_color", "RichTextLabel", INK)
+
+	# ドロップダウンのメニュー
+	theme.set_stylebox("panel", "PopupMenu", _flat(SURFACE, INPUT_BORDER, 1, 10, 6, 6))
+	theme.set_stylebox("hover", "PopupMenu", _flat(Color("#e9f5f0"), Color(0, 0, 0, 0), 0, 6, 4, 6))
+	theme.set_color("font_color", "PopupMenu", INK)
+	theme.set_color("font_hover_color", "PopupMenu", INK)
+
+	return theme
+
+func _flat(fill: Color, border: Color, border_width: int, radius: int, margin_v: int, margin_h: int) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.border_color = border
+	box.set_border_width_all(border_width)
+	box.set_corner_radius_all(radius)
+	box.content_margin_left = margin_h
+	box.content_margin_right = margin_h
+	box.content_margin_top = margin_v
+	box.content_margin_bottom = margin_v
+	return box
+
+func _apply_help_tooltips() -> void:
+	# 用語が硬めなので、マウスを乗せると意味が出るよう補足を付ける。
+	player_name_edit.tooltip_text = "対戦相手に表示される名前です。"
+	host_button.tooltip_text = "自分がホスト（親）になって部屋を開きます。"
+	join_button.tooltip_text = "ホストのIPとポートを入力してから押すと部屋に参加します。"
+	submit_cards_button.tooltip_text = "作ったカードを画像ごとホストへ送ります。"
+	start_game_button.tooltip_text = "ホスト用。全員のカードが集まったら押すとバトルが始まります。"
+	debug_bot_button.tooltip_text = "動作確認用。ランダムに行動する練習相手を1体追加します。"
+	name_edit.tooltip_text = "カードの名前。"
+	description_edit.tooltip_text = "カードに書く説明・フレーバーテキスト。"
+	card_type.tooltip_text = "武器・防具・奇跡・特殊のどれかを選びます。"
+	target.tooltip_text = "効果が誰に向くか（敵1体・自分・敵全体・全員）。"
+	effect.tooltip_text = "カードの効果（攻撃・防御・回復など）。"
+	full_reflect_check.tooltip_text = "オンにすると攻撃だけでなく、奇跡・即死などサポート系も含めて全部を跳ね返す「完全反射」になります。"
+	power.tooltip_text = "効果の強さ。攻撃なら威力、回復なら回復量。"
+	attribute.tooltip_text = "属性。防御できる相手や相性に影響します（回復のみは属性なし）。"
+	chance.tooltip_text = "この効果が発動する確率（%）。"
+	effect_mode.tooltip_text = "効果を2つ持つとき、両方出すか・どちらか一方を抽選するか。"
+	weight1.tooltip_text = "「どちらか一方」を選んだときの、効果1が出やすさの比率。"
+	second_effect_enabled.tooltip_text = "1枚のカードに2つ目の効果を持たせます。"
+	second_weight.tooltip_text = "「どちらか一方」のときの効果2の比率。"
+	tags_edit.tooltip_text = "カンマ区切りのタグ（例: full_reflect）。分類や特殊挙動に使います。"
