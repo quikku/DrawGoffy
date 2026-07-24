@@ -24,6 +24,7 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
 	multiplayer.connection_failed.connect(func(): status_changed.emit("接続に失敗した。IP/ポート/開放を確認。"))
 	multiplayer.server_disconnected.connect(func(): status_changed.emit("ホストから切断された。"))
+	CardStore.active_deck_changed.connect(_sync_my_active_deck)
 
 func host(port: int = DEFAULT_PORT, player_name: String = "") -> void:
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
@@ -36,6 +37,7 @@ func host(port: int = DEFAULT_PORT, player_name: String = "") -> void:
 	my_player_name = player_name.strip_edges().left(20) if not player_name.strip_edges().is_empty() else "ホスト"
 	players = {1: {"peer_id": 1, "name": my_player_name}}
 	CardStore.clear_session()
+	CardStore.replace_cards_from_peer(CardStore.export_active_deck_with_images(), 1)
 	GameRules.state.clear()
 	_try_upnp(port)
 	_emit_players()
@@ -58,6 +60,7 @@ func _on_connected_to_server() -> void:
 	status_changed.emit("ホストに接続した。")
 	if not my_player_name.is_empty():
 		_set_player_name.rpc_id(1, my_player_name)
+	_sync_my_active_deck()
 
 func close() -> void:
 	if upnp_thread and upnp_thread.is_started():
@@ -81,21 +84,31 @@ func _exit_tree() -> void:
 
 func send_my_cards(cards: Array) -> void:
 	if is_host:
-		var received: Array = CardStore.receive_cards_from_peer(cards, 1)
+		var received: Array = CardStore.replace_cards_from_peer(cards, 1)
 		_broadcast_cards()
-		status_changed.emit("自分のカードを%d枚、画像込みで登録しました。" % received.size())
+		status_changed.emit("使用デッキを%d枚で更新しました。" % received.size())
 	else:
 		_submit_cards.rpc_id(1, cards)
-		status_changed.emit("カードと画像をホストへ送信中です。")
+		status_changed.emit("使用デッキをホストへ自動送信しました。")
+
+func _sync_my_active_deck() -> void:
+	if not multiplayer.has_multiplayer_peer():
+		return
+	if (
+		not is_host
+		and multiplayer.multiplayer_peer.get_connection_status()
+			!= MultiplayerPeer.CONNECTION_CONNECTED
+	):
+		return
+	send_my_cards(CardStore.export_active_deck_with_images())
 
 func start_game() -> void:
 	if not is_host:
 		return
-	# ホスト自身のカードは未送信でも自動でセッションへ登録する（重複はID一致で吸収）。
-	CardStore.receive_cards_from_peer(CardStore.export_cards_with_images(), 1)
+	CardStore.replace_cards_from_peer(CardStore.export_active_deck_with_images(), 1)
 	_broadcast_cards()
-	if CardStore.session_cards.is_empty():
-		status_changed.emit("カードが1枚もないため開始できません。")
+	if CardStore.session_cards.size() < 5:
+		status_changed.emit("カードが足りません（共通デッキに5枚必要です）。")
 		return
 	var seed_value: int = randi()
 	var state: Dictionary = GameRules.new_match(players.values(), CardStore.session_cards, seed_value)
@@ -140,6 +153,13 @@ func submit_pray() -> void:
 	else:
 		_submit_pray.rpc_id(1)
 
+func pass_action() -> void:
+	var actor_peer_id: int = 1 if is_host else multiplayer.get_unique_id()
+	if is_host:
+		_publish_game_state(GameRules.pass_action(actor_peer_id))
+	else:
+		_pass_action.rpc_id(1)
+
 func pass_defense() -> void:
 	var actor_peer_id: int = 1 if is_host else multiplayer.get_unique_id()
 	if is_host:
@@ -154,6 +174,22 @@ func submit_defense(card_ids: Array[String]) -> void:
 		_publish_game_state(GameRules.play_defense_cards(actor_peer_id, card_ids))
 	else:
 		_submit_defense.rpc_id(1, card_ids)
+
+func resolve_purchase(accept: bool) -> void:
+	var buyer_peer_id: int = 1 if is_host else multiplayer.get_unique_id()
+	if is_host:
+		_publish_game_state(GameRules.resolve_purchase(buyer_peer_id, accept))
+	else:
+		_resolve_purchase.rpc_id(1, accept)
+
+func submit_exchange(card_id: String, hp: int, mp: int, gold: int) -> void:
+	var actor_peer_id: int = 1 if is_host else multiplayer.get_unique_id()
+	if is_host:
+		_publish_game_state(
+			GameRules.play_exchange(actor_peer_id, card_id, hp, mp, gold)
+		)
+	else:
+		_submit_exchange.rpc_id(1, card_id, hp, mp, gold)
 
 func _try_upnp(port: int) -> void:
 	# UPNP.discover はブロッキングなので、UI を止めないよう別スレッドで実行する。
@@ -202,13 +238,13 @@ func _submit_cards(cards: Array) -> void:
 	if not is_host:
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
-	var received: Array = CardStore.receive_cards_from_peer(cards, sender)
+	var received: Array = CardStore.replace_cards_from_peer(cards, sender)
 	_cards_received.rpc_id(sender, received.size())
 	_broadcast_cards()
 
 @rpc("authority", "reliable")
 func _cards_received(count: int) -> void:
-	status_changed.emit("ホストがカードを%d枚受領しました。画像も全員へ配布されます。" % count)
+	status_changed.emit("使用デッキ%d枚をホストと同期しました。" % count)
 
 @rpc("any_peer", "reliable")
 func _submit_play(card_ids: Array, target_peer_id: int) -> void:
@@ -226,6 +262,13 @@ func _submit_pray() -> void:
 	_publish_game_state(GameRules.pray(sender))
 
 @rpc("any_peer", "reliable")
+func _pass_action() -> void:
+	if not is_host:
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	_publish_game_state(GameRules.pass_action(sender))
+
+@rpc("any_peer", "reliable")
 func _pass_defense() -> void:
 	if not is_host:
 		return
@@ -239,6 +282,20 @@ func _submit_defense(card_ids: Array[String]) -> void:
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
 	_publish_game_state(GameRules.play_defense_cards(sender, card_ids))
+
+@rpc("any_peer", "reliable")
+func _resolve_purchase(accept: bool) -> void:
+	if not is_host:
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	_publish_game_state(GameRules.resolve_purchase(sender, accept))
+
+@rpc("any_peer", "reliable")
+func _submit_exchange(card_id: String, hp: int, mp: int, gold: int) -> void:
+	if not is_host:
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	_publish_game_state(GameRules.play_exchange(sender, card_id, hp, mp, gold))
 
 @rpc("authority", "reliable")
 func _sync_cards(cards: Array) -> void:
@@ -279,7 +336,7 @@ func _schedule_result_continue() -> void:
 func _schedule_debug_bot() -> void:
 	if not is_host or bot_action_pending or GameRules.state.is_empty():
 		return
-	if String(GameRules.state.get("phase", "")) not in ["action", "defense"]:
+	if String(GameRules.state.get("phase", "")) not in ["action", "defense", "purchase"]:
 		return
 	var actor_peer_id: int = _active_actor_peer_id()
 	if actor_peer_id == 0 or not bool(players.get(actor_peer_id, {}).get("is_bot", false)):
@@ -292,6 +349,8 @@ func _schedule_debug_bot() -> void:
 	_run_debug_bot_action(actor_peer_id)
 
 func _active_actor_peer_id() -> int:
+	if String(GameRules.state.get("phase", "")) == "purchase":
+		return int(GameRules.state.get("pending_purchase", {}).get("buyer_peer_id", 0))
 	if String(GameRules.state.get("phase", "action")) == "defense":
 		return int(GameRules.state.get("pending_attack", {}).get("target_peer_id", 0))
 	var order: Array = GameRules.state.get("player_order", [])
@@ -302,6 +361,14 @@ func _active_actor_peer_id() -> int:
 func _run_debug_bot_action(bot_peer_id: int) -> void:
 	var bot: Dictionary = GameRules.state.get("players", {}).get(str(bot_peer_id), {})
 	if bot.is_empty() or not bool(bot.get("alive", false)):
+		return
+	if String(GameRules.state.get("phase", "")) == "purchase":
+		var pending_purchase: Dictionary = GameRules.state.get("pending_purchase", {})
+		var can_buy: bool = (
+			int(bot.get("gold", 0)) >= int(pending_purchase.get("price", 0))
+			and GameRules._owned_card_count(bot) < GameRules.MAX_CARD_COUNT
+		)
+		_publish_game_state(GameRules.resolve_purchase(bot_peer_id, can_buy))
 		return
 	var hand: Array = bot.get("hand", [])
 	if String(GameRules.state.get("phase", "action")) == "defense":
@@ -318,10 +385,17 @@ func _run_debug_bot_action(bot_peer_id: int) -> void:
 		if not armors.is_empty() and randi_range(0, 99) < 70:
 			armors.shuffle()
 			var defense_ids: Array[String] = []
-			var use_count: int = randi_range(1, mini(3, armors.size()))
+			var use_count: int = (
+				1
+				if GameRules._response_kind(armors[0]) == "reflect"
+				else randi_range(1, mini(3, armors.size()))
+			)
 			for index: int in range(use_count):
 				defense_ids.append(String(armors[index]["id"]))
-			_publish_game_state(GameRules.play_defense_cards(bot_peer_id, defense_ids))
+			_publish_debug_bot_result(
+				bot_peer_id,
+				GameRules.play_defense_cards(bot_peer_id, defense_ids)
+			)
 		else:
 			_publish_game_state(GameRules.pass_defense(bot_peer_id))
 		return
@@ -331,7 +405,11 @@ func _run_debug_bot_action(bot_peer_id: int) -> void:
 	var action_cards: Array = hand.duplicate()
 	action_cards.append_array(bot.get("learned_miracles", []))
 	for raw_card: Variant in action_cards:
-		if not (raw_card is Dictionary) or not GameRules._can_play_in_action(raw_card):
+		if (
+			not (raw_card is Dictionary)
+			or not GameRules._can_play_in_action(raw_card)
+			or not GameRules._can_afford_card_costs(bot, [raw_card])
+		):
 			continue
 		if GameRules._card_has_context_effect(raw_card, "attack", "action"):
 			attack_cards.append(raw_card)
@@ -340,18 +418,37 @@ func _run_debug_bot_action(bot_peer_id: int) -> void:
 		else:
 			support_cards.append(raw_card)
 	# 攻撃カード（あれば1枚）に、手札の攻撃アップを全部重ねて撃つ。
+	# 全体攻撃（全／（全））には攻撃アップを使用しない。
 	# 攻撃系が無ければ、回復などの補助カードを1枚出す。
 	var card_ids: Array = []
 	var primary: Dictionary = {}
 	if not attack_cards.is_empty():
 		primary = attack_cards[randi_range(0, attack_cards.size() - 1)]
 		card_ids.append(String(primary["id"]))
-		for buff_card: Dictionary in buff_cards:
-			card_ids.append(String(buff_card["id"]))
+		var primary_target: String = String(
+			GameRules._first_context_effect(primary, "action", "attack").get(
+				"target",
+				primary.get("target", "enemy")
+			)
+		)
+		if primary_target not in ["all_enemies", "all_players"]:
+			for buff_card: Dictionary in buff_cards:
+				card_ids.append(String(buff_card["id"]))
 	elif not buff_cards.is_empty():
-		primary = buff_cards[0]
 		for buff_card: Dictionary in buff_cards:
-			card_ids.append(String(buff_card["id"]))
+			var buff_target: String = String(
+				GameRules._first_context_effect(buff_card, "action", "buff").get(
+					"target",
+					buff_card.get("target", "enemy")
+				)
+			)
+			if buff_target not in ["all_enemies", "all_players"]:
+				if primary.is_empty():
+					primary = buff_card
+				card_ids.append(String(buff_card["id"]))
+		if primary.is_empty():
+			_publish_game_state(GameRules.pass_action(bot_peer_id))
+			return
 	elif not support_cards.is_empty():
 		primary = support_cards[randi_range(0, support_cards.size() - 1)]
 		card_ids.append(String(primary["id"]))
@@ -369,7 +466,7 @@ func _run_debug_bot_action(bot_peer_id: int) -> void:
 				"target",
 				primary.get("target", "enemy")
 			)
-		) != "all_enemies"
+		) not in ["all_enemies", "all_players"]
 	):
 		var targets: Array[int] = []
 		for raw_peer_id: Variant in GameRules.state.get("player_order", []):
@@ -381,7 +478,21 @@ func _run_debug_bot_action(bot_peer_id: int) -> void:
 			_publish_game_state(GameRules.pass_action(bot_peer_id))
 			return
 		target_peer_id = targets[randi_range(0, targets.size() - 1)]
-	_publish_game_state(GameRules.play_action_cards(bot_peer_id, card_ids, target_peer_id))
+	_publish_debug_bot_result(
+		bot_peer_id,
+		GameRules.play_action_cards(bot_peer_id, card_ids, target_peer_id)
+	)
+
+func _publish_debug_bot_result(bot_peer_id: int, attempted_state: Dictionary) -> void:
+	# 無効な組み合わせ等で状態が変わらなかった場合も、Botの手番を永久に残さない。
+	var phase: String = String(GameRules.state.get("phase", ""))
+	if phase == "defense":
+		var pending: Dictionary = GameRules.state.get("pending_attack", {})
+		if int(pending.get("target_peer_id", 0)) == bot_peer_id:
+			attempted_state = GameRules.pass_defense(bot_peer_id)
+	elif phase == "action" and _active_actor_peer_id() == bot_peer_id:
+		attempted_state = GameRules.pass_action(bot_peer_id)
+	_publish_game_state(attempted_state)
 
 func _broadcast_cards() -> void:
 	_sync_cards.rpc(CardStore.export_session_cards_with_images())
@@ -403,6 +514,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		players.erase(peer_id)
 	_emit_players()
 	if is_host:
+		CardStore.remove_session_cards_from_peer(peer_id)
+		_broadcast_cards()
 		_sync_players.rpc(players.values())
 		if not GameRules.state.is_empty():
 			_publish_game_state(GameRules.drop_player(peer_id))

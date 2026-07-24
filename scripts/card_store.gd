@@ -1,17 +1,29 @@
 extends Node
 
+signal active_deck_changed
+
 const CARD_FILE := "user://cards.json"
+const DECK_FILE := "user://decks.json"
 const SHARED_IMAGE_DIR := "user://card_images"
 const VALID_ATTRIBUTES: Array[String] = [
 	"none", "fire", "water", "wood", "earth", "light", "dark",
 ]
-const VALID_TYPES: Array[String] = ["weapon", "armor", "miracle", "special"]
+const VALID_TYPES: Array[String] = ["weapon", "armor", "miracle", "special", "trade"]
 const VALID_TARGETS: Array[String] = ["enemy", "self", "all_enemies", "all_players"]
-const VALID_EFFECTS: Array[String] = ["attack", "buff", "guard", "reflect", "heal", "instant_death"]
+const VALID_EFFECTS: Array[String] = [
+	"attack", "buff", "guard", "reflect", "heal", "instant_death",
+	"buy", "sell", "exchange",
+]
 const VALID_EFFECT_MODES: Array[String] = ["all", "random_one"]
+const VALID_COST_RESOURCES: Array[String] = ["none", "gold", "mp", "hp"]
+const VALID_SPECIAL_EFFECTS: Array[String] = [
+	"", "double_attack", "attribute_change", "double_power", "attribute_erase",
+]
 
 var cards: Array[Dictionary] = []
 var session_cards: Array[Dictionary] = []
+var decks: Array[Dictionary] = []
+var active_deck_id := ""
 
 func _ready() -> void:
 	load_cards()
@@ -24,6 +36,11 @@ func _ready() -> void:
 		if String(card.get("id", "")).is_empty():
 			card["id"] = _make_card_id()
 	save_cards()
+	load_decks()
+	if decks.is_empty():
+		create_deck("デフォルトデッキ", false)
+	_set_valid_active_deck()
+	save_decks()
 
 func _add_missing_default_cards() -> void:
 	var existing_names: Dictionary = {}
@@ -52,6 +69,149 @@ func save_cards() -> void:
 	if file:
 		file.store_string(JSON.stringify(cards, "\t"))
 
+func load_decks() -> void:
+	decks.clear()
+	active_deck_id = ""
+	if not FileAccess.file_exists(DECK_FILE):
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(DECK_FILE))
+	if not (parsed is Dictionary):
+		return
+	active_deck_id = String(parsed.get("active_deck_id", ""))
+	for raw_deck: Variant in parsed.get("decks", []):
+		if not (raw_deck is Dictionary):
+			continue
+		var deck: Dictionary = raw_deck
+		var unique_ids: Array[String] = []
+		for raw_id: Variant in deck.get("card_ids", []):
+			var card_id: String = String(raw_id)
+			if (
+				not card_id.is_empty()
+				and card_id not in unique_ids
+				and not _card_by_id(card_id).is_empty()
+			):
+				unique_ids.append(card_id)
+		decks.append({
+			"id": String(deck.get("id", _make_card_id())),
+			"name": String(deck.get("name", "デッキ")),
+			"card_ids": unique_ids,
+		})
+
+func save_decks() -> void:
+	var file: FileAccess = FileAccess.open(DECK_FILE, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify({
+			"active_deck_id": active_deck_id,
+			"decks": decks,
+		}, "\t"))
+
+func create_deck(deck_name: String = "新しいデッキ", notify: bool = true) -> Dictionary:
+	var deck: Dictionary = {
+		"id": _make_card_id(),
+		"name": deck_name.strip_edges() if not deck_name.strip_edges().is_empty() else "新しいデッキ",
+		"card_ids": [],
+	}
+	decks.append(deck)
+	active_deck_id = String(deck["id"])
+	save_decks()
+	if notify:
+		active_deck_changed.emit()
+	return deck
+
+func rename_deck(deck_id: String, deck_name: String) -> bool:
+	var clean_name: String = deck_name.strip_edges()
+	if clean_name.is_empty():
+		return false
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) == deck_id:
+			deck["name"] = clean_name
+			save_decks()
+			active_deck_changed.emit()
+			return true
+	return false
+
+func delete_deck(deck_id: String) -> bool:
+	if decks.size() <= 1:
+		return false
+	for index: int in range(decks.size()):
+		if String(decks[index].get("id", "")) == deck_id:
+			decks.remove_at(index)
+			_set_valid_active_deck()
+			save_decks()
+			active_deck_changed.emit()
+			return true
+	return false
+
+func set_active_deck(deck_id: String) -> bool:
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) == deck_id:
+			active_deck_id = deck_id
+			save_decks()
+			active_deck_changed.emit()
+			return true
+	return false
+
+func active_deck() -> Dictionary:
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) == active_deck_id:
+			return deck
+	return {}
+
+func add_card_to_deck(deck_id: String, card_id: String) -> bool:
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) != deck_id:
+			continue
+		var card_ids: Array = deck.get("card_ids", [])
+		if card_id in card_ids or _card_by_id(card_id).is_empty():
+			return false
+		card_ids.append(card_id)
+		deck["card_ids"] = card_ids
+		save_decks()
+		if deck_id == active_deck_id:
+			active_deck_changed.emit()
+		return true
+	return false
+
+func remove_card_from_deck(deck_id: String, card_id: String) -> bool:
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) != deck_id:
+			continue
+		var card_ids: Array = deck.get("card_ids", [])
+		var index: int = card_ids.find(card_id)
+		if index < 0:
+			return false
+		card_ids.remove_at(index)
+		deck["card_ids"] = card_ids
+		save_decks()
+		if deck_id == active_deck_id:
+			active_deck_changed.emit()
+		return true
+	return false
+
+func active_deck_cards() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var deck: Dictionary = active_deck()
+	for raw_id: Variant in deck.get("card_ids", []):
+		var card: Dictionary = _card_by_id(String(raw_id))
+		if not card.is_empty():
+			result.append(card)
+	return result
+
+func export_active_deck_with_images() -> Array:
+	return _pack_cards_with_images(active_deck_cards())
+
+func _card_by_id(card_id: String) -> Dictionary:
+	for card: Dictionary in cards:
+		if String(card.get("id", "")) == card_id:
+			return card
+	return {}
+
+func _set_valid_active_deck() -> void:
+	for deck: Dictionary in decks:
+		if String(deck.get("id", "")) == active_deck_id:
+			return
+	active_deck_id = String(decks[0].get("id", "")) if not decks.is_empty() else ""
+
 func upsert_card(card: Dictionary) -> Dictionary:
 	_normalize_card(card)
 	card["rarity"] = auto_rarity(card)
@@ -61,6 +221,8 @@ func upsert_card(card: Dictionary) -> Dictionary:
 		if cards[index].get("id") == card["id"]:
 			cards[index] = card
 			save_cards()
+			if String(card["id"]) in active_deck().get("card_ids", []):
+				active_deck_changed.emit()
 			return card
 	cards.append(card)
 	save_cards()
@@ -75,7 +237,11 @@ func _upsert_session_card(card: Dictionary) -> Dictionary:
 	if String(card.get("id", "")).is_empty():
 		card["id"] = _make_card_id()
 	for index in range(session_cards.size()):
-		if session_cards[index].get("id") == card["id"]:
+		if (
+			session_cards[index].get("id") == card["id"]
+			and int(session_cards[index].get("owner_peer_id", 0))
+				== int(card.get("owner_peer_id", 0))
+		):
 			session_cards[index] = card
 			return card
 	session_cards.append(card)
@@ -89,6 +255,17 @@ func delete_card(card_id: String) -> bool:
 		if String(cards[index].get("id", "")) == card_id:
 			cards.remove_at(index)
 			save_cards()
+			var active_changed := false
+			for deck: Dictionary in decks:
+				var card_ids: Array = deck.get("card_ids", [])
+				if card_id in card_ids:
+					card_ids.erase(card_id)
+					deck["card_ids"] = card_ids
+					if String(deck.get("id", "")) == active_deck_id:
+						active_changed = true
+			save_decks()
+			if active_changed:
+				active_deck_changed.emit()
 			return true
 	return false
 
@@ -141,39 +318,116 @@ func receive_cards_from_peer(incoming: Array, peer_id: int) -> Array:
 		normalized.append(_upsert_session_card(card))
 	return normalized
 
+func replace_cards_from_peer(incoming: Array, peer_id: int) -> Array:
+	for index: int in range(session_cards.size() - 1, -1, -1):
+		if int(session_cards[index].get("owner_peer_id", 0)) == peer_id:
+			session_cards.remove_at(index)
+	return receive_cards_from_peer(incoming, peer_id)
+
+func remove_session_cards_from_peer(peer_id: int) -> void:
+	for index: int in range(session_cards.size() - 1, -1, -1):
+		if int(session_cards[index].get("owner_peer_id", 0)) == peer_id:
+			session_cards.remove_at(index)
+
 func auto_rarity(card: Dictionary) -> String:
-	var effect_scores: Array[int] = []
+	var effect_scores: Array[float] = []
+	var effect_weights: Array[int] = []
+	var tags: Array = card.get("tags", []) if card.get("tags", []) is Array else []
 	for effect_entry: Dictionary in _effects_for_card(card):
-		var effect_score: int = absi(int(effect_entry.get("power", 0)))
-		match String(effect_entry.get("effect", "attack")):
+		var effect_name: String = String(effect_entry.get("effect", "attack"))
+		var effect_score: float
+		if effect_name == "reflect":
+			# 反射は数値を持たず、種類ごとの固定値だけで評価する。
+			if "full_reflect" in tags or "all_reflect" in tags:
+				effect_score = 35.0
+			elif "miracle_reflect" in tags:
+				effect_score = 22.0
+			else:
+				effect_score = 12.0
+		elif effect_name == "exchange":
+			effect_score = 8.0
+		elif effect_name in ["buy", "sell"]:
+			effect_score = 5.0 + maxi(1, int(effect_entry.get("power", 1))) * 5.0
+		else:
+			effect_score = float(absi(int(effect_entry.get("power", 0))))
+		match effect_name:
 			"instant_death":
-				effect_score += 45
-			"reflect":
-				effect_score += 18
+				effect_score += 60.0
 			"buff":
-				effect_score += 10
+				effect_score += 10.0
 			"guard":
-				effect_score += 8
+				effect_score += 8.0
 			"heal":
-				effect_score += 6
+				effect_score += 6.0
+		if effect_name in ["attack", "buff"]:
+			match String(effect_entry.get("attribute", card.get("attribute", "none"))):
+				"light":
+					effect_score += 8.0
+				"dark":
+					effect_score += 12.0
 		if String(effect_entry.get("target", card.get("target", ""))) in ["all_enemies", "all_players"]:
-			effect_score += 15
+			effect_score += 15.0
+		var special_effect: String = String(card.get("special_effect", ""))
+		if effect_name in ["attack", "buff"]:
+			if special_effect == "attribute_change":
+				match String(card.get("special_attribute", "none")):
+					"light":
+						effect_score += 8.0
+					"dark":
+						effect_score += 12.0
+			if special_effect in ["double_attack", "double_power"]:
+				effect_score *= 2.0
+		effect_score *= clampi(int(effect_entry.get("chance", 100)), 0, 100) / 100.0
 		effect_scores.append(effect_score)
-	var score := 0
+		effect_weights.append(maxi(1, int(effect_entry.get("weight", 1))))
+	var score := 0.0
 	if String(card.get("effect_mode", "all")) == "random_one":
-		for effect_score: int in effect_scores:
-			score = maxi(score, effect_score)
+		var total_weight := 0
+		for weight: int in effect_weights:
+			total_weight += weight
+		if total_weight > 0:
+			for index: int in range(effect_scores.size()):
+				score += effect_scores[index] * effect_weights[index] / float(total_weight)
 	else:
-		for effect_score: int in effect_scores:
+		for effect_score: float in effect_scores:
 			score += effect_score
-	score = int(round(score * clampi(int(card.get("chance", 100)), 0, 100) / 100.0))
-	if score >= 45:
+	# 奇跡の再利用性は、複合効果の数にかかわらずカード1枚につき1回だけ加点する。
+	if String(card.get("type", "")) == "miracle":
+		score += 12.0
+	if String(card.get("special_effect", "")) == "attribute_erase":
+		score += 8.0
+	var cost: Dictionary = card.get("cost", {}) if card.get("cost", {}) is Dictionary else {}
+	var cost_discount: int = (
+		clampi(int(cost.get("amount", 0)), 0, 99)
+		if String(cost.get("resource", "none")) in ["gold", "mp", "hp"]
+		else 0
+	)
+	var final_score: int = int(round(
+		score * clampi(int(card.get("chance", 100)), 0, 100) / 100.0
+	)) - cost_discount
+	if final_score >= 60:
+		return "禁忌"
+	if final_score >= 45:
 		return "legendary"
-	if score >= 30:
+	if final_score >= 30:
 		return "rare"
-	if score >= 16:
+	if final_score >= 16:
 		return "uncommon"
 	return "common"
+
+func suggested_price(card: Dictionary) -> int:
+	# 既存データに価格が無い場合だけ使う移行用の基準値。
+	# 価格そのものはカード固有の編集可能な値で、レアリティとは独立して保存する。
+	match auto_rarity(card):
+		"禁忌":
+			return 20
+		"legendary":
+			return 15
+		"rare":
+			return 10
+		"uncommon":
+			return 5
+	return 1
 
 func _normalize_card(card: Dictionary) -> void:
 	card["id"] = String(card.get("id", ""))
@@ -188,6 +442,15 @@ func _normalize_card(card: Dictionary) -> void:
 	if card["attribute"] not in VALID_ATTRIBUTES:
 		card["attribute"] = "none"
 	card["tags"] = card.get("tags", []) if card.get("tags", []) is Array else []
+	# 価格機能の初版でタグとして保存した取引カードを、新しい種類・効果へ移行する。
+	if "trade_buy" in card["tags"]:
+		card["type"] = "trade"
+		card["effect"] = "buy"
+		card["effects"] = []
+	elif "trade_sell" in card["tags"]:
+		card["type"] = "trade"
+		card["effect"] = "sell"
+		card["effects"] = []
 	if card["id"] == "builtin-056" and "full_reflect" not in card["tags"]:
 		card["tags"].append("full_reflect")
 	card.erase("condition")
@@ -199,9 +462,24 @@ func _normalize_card(card: Dictionary) -> void:
 		card["target"] = "all_enemies"
 	if card["effect"] not in VALID_EFFECTS:
 		card["effect"] = "attack"
+	if card["effect"] in ["buy", "sell", "exchange"]:
+		card["type"] = "trade"
+		card["target"] = "self" if card["effect"] == "exchange" else "enemy"
+		card["attribute"] = "none"
+		card["power"] = 0 if card["effect"] == "exchange" else maxi(1, card["power"])
 	if card["target"] not in VALID_TARGETS:
 		card["target"] = "self"
 	card["chance"] = clampi(int(card.get("chance", 100)), 0, 100)
+	var raw_cost: Variant = card.get("cost", {})
+	var cost: Dictionary = raw_cost if raw_cost is Dictionary else {}
+	var cost_resource: String = String(cost.get("resource", "none"))
+	if cost_resource not in VALID_COST_RESOURCES:
+		cost_resource = "none"
+	var cost_amount: int = clampi(int(cost.get("amount", 0)), 0, 99)
+	if cost_resource == "none" or cost_amount == 0:
+		cost_resource = "none"
+		cost_amount = 0
+	card["cost"] = {"resource": cost_resource, "amount": cost_amount}
 	card["effect_mode"] = String(card.get("effect_mode", "all"))
 	if card["effect_mode"] not in VALID_EFFECT_MODES:
 		card["effect_mode"] = "all"
@@ -214,6 +492,13 @@ func _normalize_card(card: Dictionary) -> void:
 		if effect_entry["effect"] not in VALID_EFFECTS:
 			effect_entry["effect"] = "attack"
 		effect_entry["power"] = int(effect_entry.get("power", card["power"]))
+		if effect_entry["effect"] == "reflect":
+			# 反射は数値を持たず、対象カードを丸ごと返す。
+			effect_entry["power"] = 0
+		elif effect_entry["effect"] == "exchange":
+			effect_entry["power"] = 0
+		elif effect_entry["effect"] in ["buy", "sell"]:
+			effect_entry["power"] = maxi(1, effect_entry["power"])
 		effect_entry["target"] = String(effect_entry.get("target", card["target"]))
 		if effect_entry["target"] not in VALID_TARGETS:
 			effect_entry["target"] = card["target"]
@@ -233,6 +518,10 @@ func _normalize_card(card: Dictionary) -> void:
 	card["effect"] = String(primary_effect["effect"])
 	card["power"] = int(primary_effect["power"])
 	card["target"] = String(primary_effect["target"])
+	if card["effect"] in ["buy", "sell", "exchange"]:
+		card["type"] = "trade"
+		card["target"] = "self" if card["effect"] == "exchange" else "enemy"
+		card["attribute"] = "none"
 	# 回復だけのカードは属性相性に関与しない。
 	var has_non_heal := false
 	for effect_entry: Dictionary in normalized_effects:
@@ -240,7 +529,33 @@ func _normalize_card(card: Dictionary) -> void:
 			has_non_heal = true
 	if not has_non_heal:
 		card["attribute"] = "none"
+	card["special_effect"] = String(card.get("special_effect", ""))
+	var has_attack_role := false
+	var has_defense_role: bool = card["type"] == "armor"
+	for effect_entry: Dictionary in normalized_effects:
+		var role_effect: String = String(effect_entry.get("effect", ""))
+		if role_effect in ["attack", "buff"]:
+			has_attack_role = true
+		if role_effect in ["guard", "reflect"]:
+			has_defense_role = true
+	var allowed_specials: Array[String] = [""]
+	if has_attack_role:
+		allowed_specials.append_array(["double_attack", "attribute_change", "double_power"])
+	if has_defense_role:
+		allowed_specials.append("attribute_erase")
+	if card["special_effect"] not in allowed_specials:
+		card["special_effect"] = ""
+	card["special_attribute"] = String(card.get("special_attribute", "none"))
+	if card["special_attribute"] not in VALID_ATTRIBUTES:
+		card["special_attribute"] = "none"
+	if card["special_effect"] != "attribute_change":
+		card["special_attribute"] = "none"
 	card["rarity"] = auto_rarity(card)
+	card["price"] = clampi(
+		int(card.get("price", suggested_price(card))),
+		0,
+		99
+	)
 
 func _effects_for_card(card: Dictionary) -> Array:
 	var effects: Variant = card.get("effects", [])
@@ -255,7 +570,7 @@ func _effects_for_card(card: Dictionary) -> Array:
 	}]
 
 func _default_cards() -> Array[Dictionary]:
-	return [
+	var defaults: Array[Dictionary] = [
 		_builtin_card("001", "石つぶて", "小さいが扱いやすい一撃。", "weapon", "enemy", "attack", 8, "none"),
 		_builtin_card("002", "錆びた剣", "切れ味より勢いで斬る。", "weapon", "enemy", "attack", 10, "none"),
 		_builtin_card("003", "長い棒", "思ったより遠くまで届く。", "weapon", "enemy", "attack", 6, "none"),
@@ -289,7 +604,7 @@ func _default_cards() -> Array[Dictionary]:
 		_builtin_card("031", "重たい先端", "重さはだいたい正義。", "weapon", "enemy", "buff", 7, "earth"),
 		_builtin_card("032", "スポットライト", "主役の一撃を派手にする。", "weapon", "enemy", "buff", 4, "light"),
 		_builtin_card("033", "不穏なささやき", "攻撃に嫌な感じを足す。", "weapon", "enemy", "buff", 20, "dark"),
-		_builtin_card("034", "全員で押す", "敵全員へ向かう攻撃を後押しする。", "weapon", "all_enemies", "buff", 3, "none"),
+		_builtin_card("034", "みんなで押す", "狙った相手への攻撃をみんなで後押しする。", "weapon", "enemy", "buff", 3, "none"),
 		_builtin_card("035", "木の盾", "素朴で頼れる盾。", "armor", "self", "guard", 10, "none"),
 		_builtin_card("036", "鍋のふた", "取っ手が握りやすい。", "armor", "self", "guard", 6, "none"),
 		_builtin_card("037", "分厚い辞書", "知識と紙の厚みで防ぐ。", "armor", "self", "guard", 8, "none"),
@@ -306,12 +621,12 @@ func _default_cards() -> Array[Dictionary]:
 		_builtin_card("048", "天使の非常口", "危ないときだけ光る。", "armor", "self", "guard", 10, "light"),
 		_builtin_card("049", "闇色のコート", "暗い場所では見つかりにくい。", "armor", "self", "guard", 8, "dark"),
 		_builtin_card("050", "影の押し入れ", "中に隠れてやり過ごす。", "armor", "self", "guard", 12, "dark"),
-		_builtin_card("051", "鏡の盾", "受け止めた力をそのまま返す。", "armor", "self", "reflect", 10, "none"),
-		_builtin_card("052", "磨いたお盆", "顔が映るくらい磨いてある。", "armor", "self", "reflect", 6, "light"),
-		_builtin_card("053", "水鏡", "静かな水面が攻撃を映す。", "armor", "self", "reflect", 8, "water"),
-		_builtin_card("054", "オウム返し", "やられた分だけ言い返す。", "armor", "self", "reflect", 7, "wood"),
-		_builtin_card("055", "反射する溶岩", "かなり危険な鏡。", "armor", "self", "reflect", 11, "fire"),
-		_builtin_card("056", "黒い鏡", "回復や支援まで使用者へ返す完全反射。", "armor", "self", "reflect", 5, "dark", ["full_reflect"]),
+		_builtin_card("051", "鏡の盾", "攻撃カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "none", ["attack_reflect"]),
+		_builtin_card("052", "磨いたお盆", "攻撃カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "light", ["attack_reflect"]),
+		_builtin_card("053", "水鏡", "奇跡カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "water", ["miracle_reflect"]),
+		_builtin_card("054", "オウム返し", "奇跡カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "wood", ["miracle_reflect"]),
+		_builtin_card("055", "反射する溶岩", "攻撃カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "fire", ["attack_reflect"]),
+		_builtin_card("056", "黒い鏡", "種類を問わず、カードを使った相手へそのまま返す。", "armor", "self", "reflect", 0, "dark", ["full_reflect"]),
 		_builtin_card("057", "祝福の水", "覚えると何度でもHPを回復できる。", "miracle", "self", "heal", 12, "none"),
 		_builtin_card("058", "ばんそうこう", "奇跡と呼ぶには少し地味。", "miracle", "self", "heal", 5, "none"),
 		_builtin_card("059", "よく寝た", "睡眠はだいたいの問題を解決する。", "miracle", "self", "heal", 9, "none"),
@@ -363,7 +678,31 @@ func _default_cards() -> Array[Dictionary]:
 				{"effect": "heal", "power": 30, "target": "self", "chance": 100, "weight": 5},
 			],
 		},
+		{
+			"id": "builtin-084", "name": "買う",
+			"description": "相手の手札から1枚を提示し、合計価格ぶんの金でまとめて買える。",
+			"image_path": "", "type": "trade", "target": "enemy", "effect": "buy", "power": 1,
+			"attribute": "none", "chance": 100, "effect_mode": "all",
+			"tags": ["builtin"], "price": 5,
+		},
+		{
+			"id": "builtin-085", "name": "売る",
+			"description": "自分の手札1枚を相手へ強制的に売り、価格ぶんの金を受け取る。",
+			"image_path": "", "type": "trade", "target": "enemy", "effect": "sell", "power": 1,
+			"attribute": "none", "chance": 100, "effect_mode": "all",
+			"tags": ["builtin"], "price": 5,
+		},
+		{
+			"id": "builtin-086", "name": "両替",
+			"description": "HP・MP・金の合計を保ったまま、好きな配分へ振り分ける。",
+			"image_path": "", "type": "trade", "target": "self", "effect": "exchange", "power": 0,
+			"attribute": "none", "chance": 100, "effect_mode": "all",
+			"tags": ["builtin"], "price": 5,
+		},
 	]
+	for card: Dictionary in defaults:
+		_normalize_card(card)
+	return defaults
 
 func _builtin_card(
 	id_suffix: String,

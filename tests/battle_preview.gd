@@ -7,10 +7,10 @@ func _render_preview() -> void:
 	var battle: Control = load("res://scenes/battle_ui.tscn").instantiate()
 	root.add_child(battle)
 	var sample_cards: Array = [
-		{"id": "1", "name": "石つぶて", "description": "燃える石が尾を引き、狙った相手へまっすぐ飛んでいく。長めのフレーバーテキスト表示確認用。", "type": "weapon", "target": "enemy", "effect": "attack", "power": 8, "attribute": "fire", "image_path": ""},
+		{"id": "1", "name": "石つぶて", "description": "燃える石が尾を引き、狙った相手へまっすぐ飛んでいく。長めのフレーバーテキスト表示確認用。", "type": "weapon", "target": "enemy", "effect": "attack", "power": 8, "attribute": "fire", "price": 1, "image_path": ""},
 		{"id": "2", "name": "銀の剣", "type": "weapon", "target": "enemy", "effect": "attack", "power": 12, "attribute": "water", "image_path": ""},
 		{"id": "3", "name": "木の盾", "type": "armor", "target": "self", "effect": "guard", "power": 10, "attribute": "water", "image_path": ""},
-		{"id": "4", "name": "炎の盾", "type": "armor", "target": "self", "effect": "reflect", "power": 16, "attribute": "fire", "image_path": "", "tags": ["full_reflect"]},
+		{"id": "4", "name": "炎の盾", "type": "armor", "target": "self", "effect": "reflect", "power": 0, "attribute": "fire", "image_path": "", "tags": ["full_reflect"]},
 		{"id": "5", "name": "祝福の水", "type": "miracle", "target": "self", "effect": "heal", "power": 12, "attribute": "light", "image_path": ""},
 		{"id": "6", "name": "鉄の槍", "type": "weapon", "target": "enemy", "effect": "attack", "power": 7, "attribute": "wood", "image_path": ""},
 		{"id": "7", "name": "黒い鎧", "type": "armor", "target": "self", "effect": "guard", "power": 14, "attribute": "earth", "image_path": ""},
@@ -45,7 +45,7 @@ func _render_preview() -> void:
 		},
 		"deck": [1, 2, 3, 4, 5],
 		"players": {
-			"1": {"peer_id": 1, "name": "うんち", "hp": 40, "alive": true, "hand": sample_cards, "learned_miracles": learned_miracles},
+			"1": {"peer_id": 1, "name": "うんち", "hp": 40, "mp": 20, "gold": 20, "alive": true, "hand": sample_cards, "learned_miracles": learned_miracles},
 			"2": {"peer_id": 2, "name": "ペけねデヴ", "hp": 40, "alive": true, "hand": [], "learned_miracles": []},
 			"3": {"peer_id": 3, "name": "友人その2", "hp": 31, "alive": true, "hand": [], "learned_miracles": []},
 		},
@@ -82,6 +82,8 @@ func _render_preview() -> void:
 	var attack_cards_view: Control = battle.get_node("AttackCards")
 	assert(attack_cards_view.get_child_count() == 4)
 	assert(attack_cards_view.get_child(1).position.y < attack_cards_view.get_child(0).size.y)
+	var played_price: Label = attack_cards_view.get_child(0).get_child(0).get_child(2).get_child(0)
+	assert(played_price.text == "¥1")
 	var defense_cards_view: Control = battle.get_node("DefenseCards")
 	assert(defense_cards_view.get_child_count() == 4)
 	assert(defense_cards_view.get_child(1).position.y < defense_cards_view.get_child(0).size.y)
@@ -127,6 +129,8 @@ func _render_preview() -> void:
 	var disabled_armor_style: StyleBoxFlat = battle.card_panels["hand:2"].get_theme_stylebox("panel")
 	assert(disabled_armor_style.bg_color.is_equal_approx(Color("#d5ddd9")))
 	battle._show_hover_card(sample_cards[0])
+	assert(battle.hover_card_price.text == "¥1")
+	assert(battle.hover_card_price_badge.visible)
 	await process_frame
 	await create_timer(0.45).timeout
 	assert(battle.get_node("HoverCardDetail").visible)
@@ -170,9 +174,9 @@ func _render_preview() -> void:
 	assert(is_equal_approx(battle.get_node("CardUseButton").position.x, 420.0))
 	assert(battle.get_node("CardUseButton").tooltip_text == "防具なしで受ける")
 	assert(bool(battle.card_panels["hand:2"].get_meta("card_usable")))
-	assert(not bool(battle.card_panels["hand:3"].get_meta("card_usable")))
+	assert(bool(battle.card_panels["hand:3"].get_meta("card_usable")))
 	assert(not bool(battle.card_panels["hand:4"].get_meta("card_usable")))
-	battle._select_card(sample_cards[3], battle.card_panels["hand:3"])
+	battle._select_card(sample_cards[4], battle.card_panels["hand:4"])
 	assert(battle.selected_defense_cards.is_empty())
 	var pass_requests: Array = []
 	battle.pass_defense_requested.connect(func(): pass_requests.append(true))
@@ -203,14 +207,119 @@ func _render_preview() -> void:
 	battle.get_node("ActionButton").pressed.emit()
 	assert(pray_requests.size() == 1)
 
+	# 攻撃札があるターンも必ず終了できる。
+	var pass_action_requests: Array = []
+	battle.pass_action_requested.connect(func(): pass_action_requests.append(true))
+	sample_state["players"]["1"]["hand"] = [sample_cards[0]]
+	battle.show_state(sample_state)
+	assert(battle.get_node("ActionButton").visible)
+	assert(String(battle.get_node("ActionButton").text) == "ターンを終了")
+	battle.get_node("ActionButton").pressed.emit()
+	assert(pass_action_requests.size() == 1)
+
 	# 「自分」対象の回復は選択直後は自分を向き、対象を選び直せば他人へ送れる。
 	card_requests.clear()
+	sample_state["players"]["1"]["hand"] = [sample_cards[4]]
+	battle.show_state(sample_state)
 	battle._select_card(sample_cards[4], battle.card_panels["hand:0"])
 	assert(int(battle.selected_target_peer_id) == 1)
 	battle._select_target(2)
 	battle.get_node("CardUseButton").pressed.emit()
 	assert(card_requests.size() == 1)
 	assert(int(card_requests[0][1]) == 2)
+
+	# 売るは数値を上限として、行動では使えない防具も複数選べる。
+	var sell_card: Dictionary = {
+		"id": "sell", "name": "売る", "type": "trade", "target": "enemy",
+		"effect": "sell", "power": 2, "price": 5,
+	}
+	sample_state["players"]["1"]["hand"] = [sell_card, sample_cards[2], sample_cards[6]]
+	battle.show_state(sample_state)
+	battle._select_card(sell_card, battle.card_panels["hand:0"])
+	battle._select_card(sample_cards[2], battle.card_panels["hand:1"])
+	battle._select_card(sample_cards[6], battle.card_panels["hand:2"])
+	assert(battle.selected_action_cards.size() == 3)
+	assert(String(battle.selected_action_cards[1].get("id", "")) == "3")
+	assert(String(battle.selected_action_cards[2].get("id", "")) == "7")
+
+	# 売買への防御では完全反射だけが選べ、未選択ならそのまま取引を受ける。
+	var trade_attack_reflect: Dictionary = {
+		"id": "trade_attack_reflect", "name": "攻撃反射", "type": "armor",
+		"target": "self", "effect": "reflect", "power": 0,
+		"tags": ["attack_reflect"],
+	}
+	var trade_full_reflect: Dictionary = {
+		"id": "trade_full_reflect", "name": "完全反射", "type": "armor",
+		"target": "self", "effect": "reflect", "power": 0,
+		"tags": ["full_reflect"],
+	}
+	sample_state["phase"] = "defense"
+	sample_state["pending_attack"] = {
+		"attacker_peer_id": 2, "target_peer_id": 1,
+		"effect": "buy", "card": sell_card,
+	}
+	sample_state["combat_view"] = {
+		"status": "trade_pending",
+		"attacker_peer_id": 2, "target_peer_id": 1,
+		"attack_card": sell_card, "attack_cards": [sell_card],
+		"defense_cards": [], "damage": 0,
+	}
+	sample_state["players"]["1"]["hand"] = [trade_attack_reflect, trade_full_reflect]
+	battle.show_state(sample_state)
+	assert(not battle._can_use_card_now(trade_attack_reflect))
+	assert(battle._can_use_card_now(trade_full_reflect))
+	assert(String(battle.get_node("CardUseButton").text) == "取引を受ける")
+	battle._select_card(trade_full_reflect, battle.card_panels["hand:1"])
+	assert(String(battle.get_node("CardUseButton").text) == "完全反射を使う")
+
+	# 買うで提示された本人だけが、購入／拒否を選べる。
+	sample_state["phase"] = "purchase"
+	sample_state["pending_purchase"] = {
+		"buyer_peer_id": 1, "seller_peer_id": 2,
+		"cards": [sample_cards[0], sample_cards[1]], "price": 1,
+	}
+	battle.show_state(sample_state)
+	assert(battle.get_node("CardUseButton").visible)
+	assert(String(battle.get_node("CardUseButton").text) == "¥1で買う")
+	assert(battle.get_node("PassDefenseButton").visible)
+	assert(String(battle.get_node("PassDefenseButton").text) == "買わない")
+	var purchase_responses: Array = []
+	battle.purchase_response_requested.connect(func(accept: bool):
+		purchase_responses.append(accept)
+	)
+	battle.get_node("CardUseButton").pressed.emit()
+	battle.get_node("PassDefenseButton").pressed.emit()
+	assert(purchase_responses == [true, false])
+
+	# 両替はMP・¥を±1/±10し、残りをHPとしてカード使用で確定する。
+	var exchange_card: Dictionary = {
+		"id": "exchange", "name": "両替", "type": "trade", "target": "self",
+		"effect": "exchange", "power": 0, "price": 5,
+	}
+	sample_state["phase"] = "action"
+	sample_state["pending_purchase"] = {}
+	sample_state["players"]["1"]["hand"] = [exchange_card]
+	battle.show_state(sample_state)
+	battle._select_card(exchange_card, battle.card_panels["hand:0"])
+	assert(battle.get_node("ExchangePanel").visible)
+	assert("¥5" not in battle._hand_card_value_text(exchange_card))
+	assert("¥5" not in battle._card_value_text(exchange_card))
+	battle._show_hover_card(exchange_card)
+	assert(battle.hover_card_price.text == "¥5")
+	battle._hide_hover_card("exchange")
+	battle._adjust_exchange("mp", 10)
+	assert(int(battle.exchange_mp) == 30)
+	assert(int(battle.exchange_total - battle.exchange_mp - battle.exchange_gold) == 30)
+	await create_timer(0.25).timeout
+	image = root.get_viewport().get_texture().get_image()
+	error = image.save_png("res://tests/battle_exchange_preview.png")
+	assert(error == OK)
+	var exchange_requests: Array = []
+	battle.exchange_requested.connect(func(card_id: String, hp: int, mp: int, gold: int):
+		exchange_requests.append([card_id, hp, mp, gold])
+	)
+	battle.get_node("CardUseButton").pressed.emit()
+	assert(exchange_requests == [["exchange", 30, 30, 20]])
 	print("battle_preview: PASS")
 	battle.free()
 	quit()

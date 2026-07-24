@@ -122,17 +122,13 @@ text = "参加"
 
 [node name="Step3Label" type="Label" parent="Root/Tabs/Lobby"]
 layout_mode = 2
-text = "③ カードを送り、ホストがゲームを開始する"
+text = "③ 使用デッキが自動共有されたら、ホストがゲームを開始する"
 theme_override_colors/font_color = Color(0, 0.56, 0.47, 1)
 theme_override_font_sizes/font_size = 18
 
 [node name="ActionRow" type="HBoxContainer" parent="Root/Tabs/Lobby"]
 layout_mode = 2
 theme_override_constants/separation = 8
-
-[node name="SubmitCardsButton" type="Button" parent="Root/Tabs/Lobby/ActionRow"]
-layout_mode = 2
-text = "カードを送る（画像込み）"
 
 [node name="StartGameButton" type="Button" parent="Root/Tabs/Lobby/ActionRow"]
 layout_mode = 2
@@ -144,7 +140,7 @@ text = "デバッグ敵追加"
 
 [node name="HintLabel" type="Label" parent="Root/Tabs/Lobby"]
 layout_mode = 2
-text = "参加者は「カードを送る」まで。ホストは全員のカードが届いたら「ゲーム開始」を押すと全員がバトル画面へ移ります。"
+text = "接続時と使用デッキ変更時にカードは自動共有されます。共通デッキが5枚以上になったら、ホストがゲームを開始できます。"
 theme_override_colors/font_color = Color(0.43, 0.51, 0.54, 1)
 theme_override_font_sizes/font_size = 14
 autowrap_mode = 2
@@ -171,6 +167,90 @@ theme_override_font_sizes/font_size = 15
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="Decks" type="VBoxContainer" parent="Root/Tabs"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DeckRow" type="HBoxContainer" parent="Root/Tabs/Decks"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DeckLabel" type="Label" parent="Root/Tabs/Decks/DeckRow"]
+layout_mode = 2
+text = "使用デッキ"
+
+[node name="DeckSelect" type="OptionButton" parent="Root/Tabs/Decks/DeckRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DeckName" type="LineEdit" parent="Root/Tabs/Decks/DeckRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+placeholder_text = "デッキ名"
+
+[node name="NewDeckButton" type="Button" parent="Root/Tabs/Decks/DeckRow"]
+layout_mode = 2
+text = "新規"
+
+[node name="RenameDeckButton" type="Button" parent="Root/Tabs/Decks/DeckRow"]
+layout_mode = 2
+text = "名前変更"
+
+[node name="DeleteDeckButton" type="Button" parent="Root/Tabs/Decks/DeckRow"]
+layout_mode = 2
+text = "削除"
+
+[node name="DeckHint" type="Label" parent="Root/Tabs/Decks"]
+layout_mode = 2
+text = "作成済みカードを使用デッキへ入れます。同じカードは1枚まで・枚数上限なし。"
+theme_override_colors/font_color = Color(0.43, 0.51, 0.54, 1)
+
+[node name="DeckBuilder" type="HBoxContainer" parent="Root/Tabs/Decks"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="AvailableColumn" type="VBoxContainer" parent="Root/Tabs/Decks/DeckBuilder"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AvailableLabel" type="Label" parent="Root/Tabs/Decks/DeckBuilder/AvailableColumn"]
+layout_mode = 2
+text = "作成済みカード"
+
+[node name="AvailableCards" type="ItemList" parent="Root/Tabs/Decks/DeckBuilder/AvailableColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DeckButtons" type="VBoxContainer" parent="Root/Tabs/Decks/DeckBuilder"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="AddCardButton" type="Button" parent="Root/Tabs/Decks/DeckBuilder/DeckButtons"]
+layout_mode = 2
+text = "追加 →"
+
+[node name="RemoveCardButton" type="Button" parent="Root/Tabs/Decks/DeckBuilder/DeckButtons"]
+layout_mode = 2
+text = "← 外す"
+
+[node name="ActiveColumn" type="VBoxContainer" parent="Root/Tabs/Decks/DeckBuilder"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActiveLabel" type="Label" parent="Root/Tabs/Decks/DeckBuilder/ActiveColumn"]
+layout_mode = 2
+text = "デッキ内容"
+
+[node name="DeckCards" type="ItemList" parent="Root/Tabs/Decks/DeckBuilder/ActiveColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DeckCount" type="Label" parent="Root/Tabs/Decks"]
+layout_mode = 2
+text = "0枚"
+
 [node name="Cards" type="HBoxContainer" parent="Root/Tabs"]
 layout_mode = 2
 theme_override_constants/separation = 12
@@ -183,7 +263,7 @@ size_flags_vertical = 3
 [node name="Editor" type="VBoxContainer" parent="Root/Tabs/Cards"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme_override_constants/separation = 1
 
 [node name="Name" type="LineEdit" parent="Root/Tabs/Cards/Editor"]
 layout_mode = 2
@@ -208,7 +288,7 @@ text = "画像なし"
 text_overrun_behavior = 3
 
 [node name="ImagePreview" type="TextureRect" parent="Root/Tabs/Cards/Editor"]
-custom_minimum_size = Vector2(96, 96)
+custom_minimum_size = Vector2(72, 72)
 layout_mode = 2
 size_flags_horizontal = 0
 expand_mode = 1
@@ -245,6 +325,16 @@ text = "効果"
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="ChanceLabel" type="Label" parent="Root/Tabs/Cards/Editor/EffectRow"]
+layout_mode = 2
+text = "効果1率%"
+
+[node name="Chance" type="SpinBox" parent="Root/Tabs/Cards/Editor/EffectRow"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 100.0
+
 [node name="FullReflect" type="CheckBox" parent="Root/Tabs/Cards/Editor/EffectRow"]
 visible = false
 layout_mode = 2
@@ -278,7 +368,7 @@ theme_override_constants/separation = 8
 
 [node name="ChanceLabel" type="Label" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
 layout_mode = 2
-text = "発動率%"
+text = "カード発動率%"
 
 [node name="Chance" type="SpinBox" parent="Root/Tabs/Cards/Editor/ProbabilityRow"]
 layout_mode = 2
@@ -326,6 +416,16 @@ min_value = -999.0
 max_value = 999.0
 value = 5.0
 
+[node name="ChanceLabel" type="Label" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+text = "率%"
+
+[node name="Chance" type="SpinBox" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 100.0
+
 [node name="WeightLabel" type="Label" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
 layout_mode = 2
 text = "比率"
@@ -333,6 +433,59 @@ text = "比率"
 [node name="Weight" type="SpinBox" parent="Root/Tabs/Cards/Editor/SecondEffectRow"]
 layout_mode = 2
 min_value = 1.0
+max_value = 99.0
+value = 1.0
+
+[node name="SpecialEffectRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EffectLabel" type="Label" parent="Root/Tabs/Cards/Editor/SpecialEffectRow"]
+layout_mode = 2
+text = "特殊効果"
+
+[node name="Effect" type="OptionButton" parent="Root/Tabs/Cards/Editor/SpecialEffectRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AttributeLabel" type="Label" parent="Root/Tabs/Cards/Editor/SpecialEffectRow"]
+visible = false
+layout_mode = 2
+text = "変更先"
+
+[node name="Attribute" type="OptionButton" parent="Root/Tabs/Cards/Editor/SpecialEffectRow"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CostRow" type="HBoxContainer" parent="Root/Tabs/Cards/Editor"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CostLabel" type="Label" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+text = "使用コスト"
+
+[node name="Resource" type="OptionButton" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AmountLabel" type="Label" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+text = "数量"
+
+[node name="Amount" type="SpinBox" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+min_value = 0.0
+max_value = 99.0
+
+[node name="PriceLabel" type="Label" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+text = "価格（¥）"
+
+[node name="Price" type="SpinBox" parent="Root/Tabs/Cards/Editor/CostRow"]
+layout_mode = 2
+min_value = 0.0
 max_value = 99.0
 value = 1.0
 

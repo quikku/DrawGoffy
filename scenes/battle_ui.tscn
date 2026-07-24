@@ -310,10 +310,26 @@ text = "カード名"
 autowrap_mode = 2
 theme_override_font_sizes/font_size = 22
 
-[node name="AttributeValue" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
+[node name="ValueRow" type="HBoxContainer" parent="HoverCardDetail/Margin/Row/Details"]
 layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AttributeValue" type="Label" parent="HoverCardDetail/Margin/Row/Details/ValueRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "無　攻 8"
 theme_override_font_sizes/font_size = 20
+
+[node name="PriceBadge" type="PanelContainer" parent="HoverCardDetail/Margin/Row/Details/ValueRow"]
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+
+[node name="Price" type="Label" parent="HoverCardDetail/Margin/Row/Details/ValueRow/PriceBadge"]
+layout_mode = 2
+text = "¥1"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 16
 
 [node name="Description" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
 layout_mode = 2
@@ -342,6 +358,147 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 theme_override_font_sizes/font_size = 24
+
+[node name="ExchangePanel" type="PanelContainer" parent="."]
+visible = false
+z_index = 80
+layout_mode = 1
+anchors_preset = 0
+offset_left = 365.0
+offset_top = 94.0
+offset_right = 805.0
+offset_bottom = 414.0
+
+[node name="Margin" type="MarginContainer" parent="ExchangePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 4
+
+[node name="Content" type="VBoxContainer" parent="ExchangePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Plus10Row" type="HBoxContainer" parent="ExchangePanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="HpSpace" type="Control" parent="ExchangePanel/Margin/Content/Plus10Row"]
+custom_minimum_size = Vector2(124, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Mp" type="Button" parent="ExchangePanel/Margin/Content/Plus10Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "+10"
+theme_override_font_sizes/font_size = 30
+
+[node name="Gold" type="Button" parent="ExchangePanel/Margin/Content/Plus10Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "+10"
+theme_override_font_sizes/font_size = 30
+
+[node name="Plus1Row" type="HBoxContainer" parent="ExchangePanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="HpSpace" type="Control" parent="ExchangePanel/Margin/Content/Plus1Row"]
+custom_minimum_size = Vector2(124, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Mp" type="Button" parent="ExchangePanel/Margin/Content/Plus1Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "+1"
+theme_override_font_sizes/font_size = 30
+
+[node name="Gold" type="Button" parent="ExchangePanel/Margin/Content/Plus1Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "+1"
+theme_override_font_sizes/font_size = 30
+
+[node name="ValuesPanel" type="PanelContainer" parent="ExchangePanel/Margin/Content"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+
+[node name="Values" type="HBoxContainer" parent="ExchangePanel/Margin/Content/ValuesPanel"]
+layout_mode = 2
+
+[node name="Hp" type="Label" parent="ExchangePanel/Margin/Content/ValuesPanel/Values"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "HP 40"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Mp" type="Label" parent="ExchangePanel/Margin/Content/ValuesPanel/Values"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "MP 20"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Gold" type="Label" parent="ExchangePanel/Margin/Content/ValuesPanel/Values"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "¥ 20"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Minus1Row" type="HBoxContainer" parent="ExchangePanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="HpSpace" type="Control" parent="ExchangePanel/Margin/Content/Minus1Row"]
+custom_minimum_size = Vector2(124, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Mp" type="Button" parent="ExchangePanel/Margin/Content/Minus1Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "-1"
+theme_override_font_sizes/font_size = 30
+
+[node name="Gold" type="Button" parent="ExchangePanel/Margin/Content/Minus1Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "-1"
+theme_override_font_sizes/font_size = 30
+
+[node name="Minus10Row" type="HBoxContainer" parent="ExchangePanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="HpSpace" type="Control" parent="ExchangePanel/Margin/Content/Minus10Row"]
+custom_minimum_size = Vector2(124, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Mp" type="Button" parent="ExchangePanel/Margin/Content/Minus10Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "-10"
+theme_override_font_sizes/font_size = 30
+
+[node name="Gold" type="Button" parent="ExchangePanel/Margin/Content/Minus10Row"]
+custom_minimum_size = Vector2(120, 48)
+layout_mode = 2
+text = "-10"
+theme_override_font_sizes/font_size = 30
+
+[node name="Hint" type="Label" parent="ExchangePanel/Margin/Content"]
+layout_mode = 2
+text = "MPと¥を調整し、「カードを使う」で決定"
+horizontal_alignment = 1
 
 [node name="ResultPanel" type="PanelContainer" parent="."]
 visible = false

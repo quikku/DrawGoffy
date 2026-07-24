@@ -20,6 +20,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
 
+Audio="*res://scripts/audio.gd"
 CardStore="*res://scripts/card_store.gd"
 GameRules="*res://scripts/game_rules.gd"
 Net="*res://scripts/net.gd"

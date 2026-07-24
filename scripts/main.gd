@@ -7,11 +7,20 @@ extends Control
 @onready var join_address: LineEdit = $Root/Tabs/Lobby/ConnectRow/JoinAddress
 @onready var join_port: SpinBox = $Root/Tabs/Lobby/ConnectRow/JoinPort
 @onready var join_button: Button = $Root/Tabs/Lobby/ConnectRow/JoinButton
-@onready var submit_cards_button: Button = $Root/Tabs/Lobby/ActionRow/SubmitCardsButton
 @onready var start_game_button: Button = $Root/Tabs/Lobby/ActionRow/StartGameButton
 @onready var debug_bot_button: Button = $Root/Tabs/Lobby/ActionRow/DebugBotButton
 @onready var network_info: RichTextLabel = $Root/Tabs/Lobby/NetworkInfo
 @onready var players_list: ItemList = $Root/Tabs/Lobby/Players
+@onready var deck_select: OptionButton = $Root/Tabs/Decks/DeckRow/DeckSelect
+@onready var deck_name_edit: LineEdit = $Root/Tabs/Decks/DeckRow/DeckName
+@onready var new_deck_button: Button = $Root/Tabs/Decks/DeckRow/NewDeckButton
+@onready var rename_deck_button: Button = $Root/Tabs/Decks/DeckRow/RenameDeckButton
+@onready var delete_deck_button: Button = $Root/Tabs/Decks/DeckRow/DeleteDeckButton
+@onready var available_cards: ItemList = $Root/Tabs/Decks/DeckBuilder/AvailableColumn/AvailableCards
+@onready var deck_cards: ItemList = $Root/Tabs/Decks/DeckBuilder/ActiveColumn/DeckCards
+@onready var add_card_button: Button = $Root/Tabs/Decks/DeckBuilder/DeckButtons/AddCardButton
+@onready var remove_card_button: Button = $Root/Tabs/Decks/DeckBuilder/DeckButtons/RemoveCardButton
+@onready var deck_count: Label = $Root/Tabs/Decks/DeckCount
 @onready var card_list: ItemList = $Root/Tabs/Cards/CardList
 @onready var name_edit: LineEdit = $Root/Tabs/Cards/Editor/Name
 @onready var description_edit: TextEdit = $Root/Tabs/Cards/Editor/Description
@@ -22,7 +31,9 @@ extends Control
 @onready var card_type: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/CardType
 @onready var target: OptionButton = $Root/Tabs/Cards/Editor/TypeRow/Target
 @onready var effect: OptionButton = $Root/Tabs/Cards/Editor/EffectRow/Effect
+@onready var first_effect_chance: SpinBox = $Root/Tabs/Cards/Editor/EffectRow/Chance
 @onready var full_reflect_check: CheckBox = $Root/Tabs/Cards/Editor/EffectRow/FullReflect
+@onready var power_label: Label = $Root/Tabs/Cards/Editor/NumberAttrRow/PowerLabel
 @onready var power: SpinBox = $Root/Tabs/Cards/Editor/NumberAttrRow/Power
 @onready var attribute: OptionButton = $Root/Tabs/Cards/Editor/NumberAttrRow/Attribute
 @onready var chance: SpinBox = $Root/Tabs/Cards/Editor/ProbabilityRow/Chance
@@ -32,7 +43,14 @@ extends Control
 @onready var second_effect: OptionButton = $Root/Tabs/Cards/Editor/SecondEffectRow/Effect
 @onready var second_target: OptionButton = $Root/Tabs/Cards/Editor/SecondEffectRow/Target
 @onready var second_power: SpinBox = $Root/Tabs/Cards/Editor/SecondEffectRow/Power
+@onready var second_effect_chance: SpinBox = $Root/Tabs/Cards/Editor/SecondEffectRow/Chance
 @onready var second_weight: SpinBox = $Root/Tabs/Cards/Editor/SecondEffectRow/Weight
+@onready var special_effect: OptionButton = $Root/Tabs/Cards/Editor/SpecialEffectRow/Effect
+@onready var special_attribute_label: Label = $Root/Tabs/Cards/Editor/SpecialEffectRow/AttributeLabel
+@onready var special_attribute: OptionButton = $Root/Tabs/Cards/Editor/SpecialEffectRow/Attribute
+@onready var cost_resource: OptionButton = $Root/Tabs/Cards/Editor/CostRow/Resource
+@onready var cost_amount: SpinBox = $Root/Tabs/Cards/Editor/CostRow/Amount
+@onready var price: SpinBox = $Root/Tabs/Cards/Editor/CostRow/Price
 @onready var tags_edit: LineEdit = $Root/Tabs/Cards/Editor/Tags
 @onready var save_card_button: Button = $Root/Tabs/Cards/Editor/SaveCardButton
 @onready var rarity_label: Label = $Root/Tabs/Cards/Editor/RarityLabel
@@ -44,12 +62,25 @@ var selected_card_id := ""
 var selected_image_path := ""
 
 # 表示は日本語、保存する内部値は英語キー。[キー, 表示ラベル] の順で持つ。
-const TYPE_OPTIONS: Array = [["weapon", "武器"], ["armor", "防具"], ["miracle", "奇跡"], ["special", "特殊アイテム"]]
-const TARGET_OPTIONS: Array = [["enemy", "敵1体"], ["self", "自分"], ["all_enemies", "敵全体"], ["all_players", "全員"]]
-const EFFECT_OPTIONS: Array = [["attack", "攻撃"], ["buff", "攻撃力アップ"], ["guard", "防御"], ["reflect", "反射"], ["heal", "回復"], ["instant_death", "即死"]]
+const TYPE_OPTIONS: Array = [["weapon", "武器"], ["armor", "防具"], ["miracle", "奇跡"], ["special", "特殊アイテム"], ["trade", "売買"]]
+const TARGET_OPTIONS: Array = [["enemy", "敵1体"], ["self", "自分"], ["all_enemies", "全"], ["all_players", "（全）"]]
+const EFFECT_OPTIONS: Array = [["attack", "攻撃"], ["buff", "攻撃力アップ"], ["guard", "防御"], ["reflect", "反射"], ["heal", "回復"], ["instant_death", "即死"], ["buy", "買う"], ["sell", "売る"], ["exchange", "両替"]]
 const EFFECT_MODE_OPTIONS: Array = [["all", "用途別に発動"], ["random_one", "どちらか一方"]]
 const ATTRIBUTE_OPTIONS: Array = [["none", "無"], ["fire", "火"], ["water", "水"], ["wood", "木"], ["earth", "土"], ["light", "光"], ["dark", "闇"]]
-const RARITY_LABELS: Dictionary = {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "legendary": "レジェンダリー"}
+const COST_RESOURCE_OPTIONS: Array = [["none", "なし"], ["gold", "¥"], ["mp", "MP"], ["hp", "HP"]]
+const ATTACK_SPECIAL_OPTIONS: Array = [
+	["double_attack", "2回攻撃"],
+	["attribute_change", "属性変更"],
+	["double_power", "攻撃力倍"],
+]
+const DEFENSE_SPECIAL_OPTIONS: Array = [["attribute_erase", "属性消し"]]
+const RARITY_LABELS: Dictionary = {
+	"common": "コモン",
+	"uncommon": "アンコモン",
+	"rare": "レア",
+	"legendary": "レジェンダリー",
+	"禁忌": "禁忌",
+}
 
 func _ready() -> void:
 	_apply_ui_theme()
@@ -57,9 +88,11 @@ func _ready() -> void:
 	_apply_help_tooltips()
 	_refresh_second_effect_controls()
 	_refresh_full_reflect_visibility()
+	_refresh_special_effect_options()
 	_connect_signals()
 	_refresh_cards()
-	_log("カードはイラスト画像込みでホストへ送り、ホストが全員へ配り直します。")
+	_refresh_decks()
+	_log("使用デッキは接続時と変更時に自動共有されます。")
 
 func _setup_options() -> void:
 	_fill_options(card_type, TYPE_OPTIONS)
@@ -69,6 +102,8 @@ func _setup_options() -> void:
 	_fill_options(second_target, TARGET_OPTIONS)
 	_fill_options(effect_mode, EFFECT_MODE_OPTIONS)
 	_fill_options(attribute, ATTRIBUTE_OPTIONS)
+	_fill_options(special_attribute, ATTRIBUTE_OPTIONS)
+	_fill_options(cost_resource, COST_RESOURCE_OPTIONS)
 
 func _fill_options(option: OptionButton, pairs: Array) -> void:
 	option.clear()
@@ -84,26 +119,41 @@ func _option_key(option: OptionButton) -> String:
 func _connect_signals() -> void:
 	host_button.pressed.connect(func(): Net.host(int(join_port.value), player_name_edit.text.strip_edges()))
 	join_button.pressed.connect(func(): Net.join(join_address.text.strip_edges(), int(join_port.value), player_name_edit.text.strip_edges()))
-	submit_cards_button.pressed.connect(func(): Net.send_my_cards(CardStore.export_cards_with_images()))
 	start_game_button.pressed.connect(Net.start_game)
 	debug_bot_button.pressed.connect(Net.add_debug_bot)
+	deck_select.item_selected.connect(_select_deck)
+	new_deck_button.pressed.connect(_create_deck)
+	rename_deck_button.pressed.connect(_rename_deck)
+	delete_deck_button.pressed.connect(_delete_deck)
+	add_card_button.pressed.connect(_add_selected_card_to_deck)
+	remove_card_button.pressed.connect(_remove_selected_card_from_deck)
+	CardStore.active_deck_changed.connect(_refresh_decks)
 	save_card_button.pressed.connect(_save_current_card)
 	new_card_button.pressed.connect(_clear_editor)
 	delete_card_button.pressed.connect(_delete_current_card)
 	choose_image_button.pressed.connect(func(): image_file_dialog.popup_centered_ratio(0.8))
 	image_file_dialog.file_selected.connect(_on_image_selected)
-	card_type.item_selected.connect(func(_index): _apply_type_defaults(); _update_rarity_preview())
-	effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
-	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
+	card_type.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_special_effect_options(); _update_rarity_preview())
+	effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _refresh_special_effect_options(); _update_rarity_preview())
+	second_effect.item_selected.connect(func(_index): _apply_type_defaults(); _refresh_full_reflect_visibility(); _refresh_special_effect_options(); _update_rarity_preview())
 	target.item_selected.connect(func(_index): _update_rarity_preview())
 	second_target.item_selected.connect(func(_index): _update_rarity_preview())
+	attribute.item_selected.connect(func(_index): _update_rarity_preview())
 	power.value_changed.connect(func(_v): _update_rarity_preview())
 	second_power.value_changed.connect(func(_v): _update_rarity_preview())
 	chance.value_changed.connect(func(_v): _update_rarity_preview())
+	first_effect_chance.value_changed.connect(func(_v): _update_rarity_preview())
+	second_effect_chance.value_changed.connect(func(_v): _update_rarity_preview())
 	effect_mode.item_selected.connect(func(_index): _update_rarity_preview())
 	weight1.value_changed.connect(func(_v): _update_rarity_preview())
 	second_weight.value_changed.connect(func(_v): _update_rarity_preview())
-	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _refresh_full_reflect_visibility(); _update_rarity_preview())
+	tags_edit.text_changed.connect(func(_text): _update_rarity_preview())
+	full_reflect_check.toggled.connect(func(_enabled): _update_rarity_preview())
+	special_effect.item_selected.connect(func(_index): _refresh_special_attribute_visibility(); _update_rarity_preview())
+	special_attribute.item_selected.connect(func(_index): _update_rarity_preview())
+	cost_resource.item_selected.connect(func(_index): _refresh_cost_controls(); _update_rarity_preview())
+	cost_amount.value_changed.connect(func(_value): _update_rarity_preview())
+	second_effect_enabled.toggled.connect(func(_enabled): _refresh_second_effect_controls(); _apply_type_defaults(); _refresh_full_reflect_visibility(); _refresh_special_effect_options(); _update_rarity_preview())
 	card_list.item_selected.connect(_load_card_at)
 	Net.status_changed.connect(_log)
 	Net.players_changed.connect(_refresh_players)
@@ -113,7 +163,29 @@ func _connect_signals() -> void:
 	battle_screen.defense_cards_requested.connect(Net.submit_defense)
 	battle_screen.pass_defense_requested.connect(Net.pass_defense)
 	battle_screen.pray_requested.connect(Net.submit_pray)
+	battle_screen.pass_action_requested.connect(Net.pass_action)
+	battle_screen.purchase_response_requested.connect(Net.resolve_purchase)
+	battle_screen.exchange_requested.connect(Net.submit_exchange)
 	battle_screen.leave_requested.connect(_leave_battle)
+	_connect_button_sfx([
+		host_button,
+		join_button,
+		start_game_button,
+		debug_bot_button,
+		new_deck_button,
+		rename_deck_button,
+		delete_deck_button,
+		add_card_button,
+		remove_card_button,
+		save_card_button,
+		new_card_button,
+		delete_card_button,
+		choose_image_button,
+	])
+
+func _connect_button_sfx(buttons: Array) -> void:
+	for button: Button in buttons:
+		button.pressed.connect(func(): Audio.play_sfx("ui_button", -4.0))
 
 func _save_current_card() -> void:
 	var entered_effect: String = _option_key(effect)
@@ -122,7 +194,7 @@ func _save_current_card() -> void:
 		"effect": entered_effect,
 		"power": int(power.value),
 		"target": entered_target,
-		"chance": 100,
+		"chance": int(first_effect_chance.value),
 		"weight": int(weight1.value),
 	}]
 	if second_effect_enabled.button_pressed:
@@ -130,7 +202,7 @@ func _save_current_card() -> void:
 			"effect": _option_key(second_effect),
 			"power": int(second_power.value),
 			"target": _option_key(second_target),
-			"chance": 100,
+			"chance": int(second_effect_chance.value),
 			"weight": int(second_weight.value),
 		})
 	# 完全反射はチェックボックスで on/off する。反射効果を外した場合も
@@ -160,10 +232,18 @@ func _save_current_card() -> void:
 		"effect_mode": _option_key(effect_mode),
 		"effects": effects,
 		"tags": tags,
+		"special_effect": _option_key(special_effect),
+		"special_attribute": _option_key(special_attribute),
+		"cost": {
+			"resource": _option_key(cost_resource),
+			"amount": int(cost_amount.value),
+		},
+		"price": int(price.value),
 	}
 	var saved: Dictionary = CardStore.upsert_card(card)
 	selected_card_id = String(saved["id"])
 	_refresh_cards()
+	_refresh_decks()
 	var msg: String = "%s を保存。レアリティ: %s" % [saved["name"], _rarity_label(String(saved["rarity"]))]
 	if String(saved.get("effect", "")) != entered_effect:
 		msg += "（効果「%s」→「%s」に自動変更）" % [_label_for(EFFECT_OPTIONS, entered_effect), _label_for(EFFECT_OPTIONS, String(saved["effect"]))]
@@ -182,15 +262,87 @@ func _delete_current_card() -> void:
 	CardStore.delete_card(selected_card_id)
 	_clear_editor()
 	_refresh_cards()
+	_refresh_decks()
 	_log("カードを削除しました。")
 
 func _refresh_cards() -> void:
 	card_list.clear()
 	for card in CardStore.cards:
-		card_list.add_item("%s [%s] %s %d" % [
-			card["name"], _rarity_label(String(card["rarity"])), _kind_summary(card), int(card["power"])
+		var value_suffix: String = (
+			""
+			if String(card.get("effect", "")) in ["reflect", "exchange"]
+			else " %d" % int(card.get("power", 0))
+		)
+		card_list.add_item("%s [%s] ¥%d / %s%s" % [
+			card["name"], _rarity_label(String(card["rarity"])),
+			int(card.get("price", 0)), _kind_summary(card), value_suffix + _cost_suffix(card),
 		])
 	delete_card_button.disabled = selected_card_id.is_empty()
+
+func _refresh_decks() -> void:
+	deck_select.clear()
+	var selected_index := 0
+	for index: int in range(CardStore.decks.size()):
+		var deck: Dictionary = CardStore.decks[index]
+		deck_select.add_item(String(deck.get("name", "デッキ")))
+		deck_select.set_item_metadata(index, String(deck.get("id", "")))
+		if String(deck.get("id", "")) == CardStore.active_deck_id:
+			selected_index = index
+	if deck_select.item_count > 0:
+		deck_select.select(selected_index)
+	var active: Dictionary = CardStore.active_deck()
+	deck_name_edit.text = String(active.get("name", ""))
+	delete_deck_button.disabled = CardStore.decks.size() <= 1
+	available_cards.clear()
+	deck_cards.clear()
+	var active_ids: Array = active.get("card_ids", [])
+	for card: Dictionary in CardStore.cards:
+		var card_id: String = String(card.get("id", ""))
+		var label: String = "%s [%s]" % [
+			card.get("name", ""), _rarity_label(String(card.get("rarity", "common"))),
+		]
+		if card_id in active_ids:
+			deck_cards.add_item(label)
+			deck_cards.set_item_metadata(deck_cards.item_count - 1, card_id)
+		else:
+			available_cards.add_item(label)
+			available_cards.set_item_metadata(available_cards.item_count - 1, card_id)
+	deck_count.text = "%d枚" % active_ids.size()
+
+func _select_deck(index: int) -> void:
+	if index < 0 or index >= deck_select.item_count:
+		return
+	CardStore.set_active_deck(String(deck_select.get_item_metadata(index)))
+
+func _create_deck() -> void:
+	CardStore.create_deck(deck_name_edit.text)
+	_log("新しいデッキを作成しました。")
+
+func _rename_deck() -> void:
+	if CardStore.rename_deck(CardStore.active_deck_id, deck_name_edit.text):
+		_log("デッキ名を変更しました。")
+
+func _delete_deck() -> void:
+	if CardStore.delete_deck(CardStore.active_deck_id):
+		_log("デッキを削除しました。")
+	else:
+		_log("最後のデッキは削除できません。")
+
+func _add_selected_card_to_deck() -> void:
+	var selected: PackedInt32Array = available_cards.get_selected_items()
+	if selected.is_empty():
+		return
+	var card_id: String = String(available_cards.get_item_metadata(selected[0]))
+	CardStore.add_card_to_deck(CardStore.active_deck_id, card_id)
+	Audio.play_sfx("card_draw", -2.0)
+
+func _remove_selected_card_from_deck() -> void:
+	var selected: PackedInt32Array = deck_cards.get_selected_items()
+	if selected.is_empty():
+		return
+	var card_id: String = String(deck_cards.get_item_metadata(selected[0]))
+	CardStore.remove_card_from_deck(CardStore.active_deck_id, card_id)
+	Audio.play_sfx("card_deselect", -5.0)
 
 func _label_for(pairs: Array, key: String) -> String:
 	for pair: Array in pairs:
@@ -201,6 +353,20 @@ func _label_for(pairs: Array, key: String) -> String:
 func _rarity_label(rarity: String) -> String:
 	return String(RARITY_LABELS.get(rarity, rarity))
 
+func _cost_suffix(card: Dictionary) -> String:
+	var cost: Dictionary = card.get("cost", {}) if card.get("cost", {}) is Dictionary else {}
+	var amount: int = int(cost.get("amount", 0))
+	if amount <= 0:
+		return ""
+	match String(cost.get("resource", "none")):
+		"gold":
+			return " / ¥%d" % amount
+		"mp":
+			return " / MP%d" % amount
+		"hp":
+			return " / HP%d" % amount
+	return ""
+
 func _kind_summary(card: Dictionary) -> String:
 	var labels: Array[String] = []
 	for effect_entry: Dictionary in card.get("effects", [{
@@ -209,18 +375,36 @@ func _kind_summary(card: Dictionary) -> String:
 	}]):
 		var label: String = _label_for(EFFECT_OPTIONS, String(effect_entry.get("effect", "")))
 		if String(effect_entry.get("target", "")) == "all_enemies":
-			label += "/敵全体"
+			label += "/全"
 		elif String(effect_entry.get("target", "")) == "all_players":
-			label += "/全員"
+			label += "/（全）"
 		labels.append(label)
 	var separator := " / " if (
 		String(card.get("effect_mode", "all")) == "random_one"
 		or _uses_contextual_roles(card)
 	) else "＋"
 	var summary: String = separator.join(labels)
+	var special_label: String = _special_effect_label(card)
+	if not special_label.is_empty():
+		summary += " / %s" % special_label
 	if int(card.get("chance", 100)) < 100:
 		summary += " %d%%" % int(card.get("chance", 100))
 	return summary
+
+func _special_effect_label(card: Dictionary) -> String:
+	match String(card.get("special_effect", "")):
+		"double_attack":
+			return "2回攻撃"
+		"attribute_change":
+			return "属性変更:%s" % _label_for(
+				ATTRIBUTE_OPTIONS,
+				String(card.get("special_attribute", "none"))
+			)
+		"double_power":
+			return "攻撃力倍"
+		"attribute_erase":
+			return "属性消し"
+	return ""
 
 func _uses_contextual_roles(card: Dictionary) -> bool:
 	var has_action_role := false
@@ -241,6 +425,7 @@ func _refresh_players(players: Array) -> void:
 func _load_card_at(index: int) -> void:
 	if index < 0 or index >= CardStore.cards.size():
 		return
+	Audio.play_sfx("card_select", -4.0)
 	var card: Dictionary = CardStore.cards[index]
 	selected_card_id = String(card["id"])
 	selected_image_path = String(card["image_path"])
@@ -255,14 +440,25 @@ func _load_card_at(index: int) -> void:
 	_select_option(effect_mode, String(card.get("effect_mode", "all")))
 	var effects: Array = card.get("effects", [])
 	weight1.value = int(effects[0].get("weight", 1)) if not effects.is_empty() else 1
+	first_effect_chance.value = int(effects[0].get("chance", 100)) if not effects.is_empty() else 100
 	second_effect_enabled.button_pressed = effects.size() > 1
 	if effects.size() > 1:
 		var second: Dictionary = effects[1]
 		_select_option(second_effect, String(second.get("effect", "heal")))
 		_select_option(second_target, String(second.get("target", "self")))
 		second_power.value = int(second.get("power", 5))
+		second_effect_chance.value = int(second.get("chance", 100))
 		second_weight.value = int(second.get("weight", 1))
 	_refresh_second_effect_controls()
+	_refresh_special_effect_options()
+	_select_option(special_effect, String(card.get("special_effect", "")))
+	_select_option(special_attribute, String(card.get("special_attribute", "none")))
+	_refresh_special_attribute_visibility()
+	var card_cost: Dictionary = card.get("cost", {})
+	_select_option(cost_resource, String(card_cost.get("resource", "none")))
+	cost_amount.value = int(card_cost.get("amount", 0))
+	price.value = int(card.get("price", 1))
+	_refresh_cost_controls()
 	tags_edit.text = ",".join(card["tags"])
 	full_reflect_check.button_pressed = "full_reflect" in card.get("tags", [])
 	_refresh_full_reflect_visibility()
@@ -281,12 +477,22 @@ func _clear_editor() -> void:
 	power.value = 10
 	chance.value = 100
 	weight1.value = 1
+	first_effect_chance.value = 100
 	second_effect_enabled.button_pressed = false
 	second_power.value = 5
+	second_effect_chance.value = 100
 	second_weight.value = 1
 	_select_option(effect_mode, "all")
 	_select_option(second_effect, "heal")
 	_select_option(second_target, "self")
+	_refresh_special_effect_options()
+	_select_option(special_effect, "")
+	_select_option(special_attribute, "none")
+	_refresh_special_attribute_visibility()
+	_select_option(cost_resource, "none")
+	cost_amount.value = 0
+	price.value = 1
+	_refresh_cost_controls()
 	full_reflect_check.button_pressed = false
 	_refresh_full_reflect_visibility()
 	_refresh_second_effect_controls()
@@ -320,7 +526,40 @@ func _refresh_image_preview() -> void:
 	image_name.text = "%s（送信時に画像本体も送ります）" % selected_image_path.get_file()
 
 func _apply_type_defaults() -> void:
+	var is_trade: bool = _option_key(card_type) == "trade"
+	var effect_name: String = _option_key(effect)
+	if is_trade and effect_name not in ["buy", "sell", "exchange"]:
+		_select_option(effect, "buy")
+		effect_name = "buy"
+	elif not is_trade and effect_name in ["buy", "sell", "exchange"]:
+		_select_option(effect, "attack")
+		effect_name = "attack"
+	if effect_name in ["buy", "sell", "exchange"]:
+		_select_option(card_type, "trade")
+		_select_option(target, "self" if effect_name == "exchange" else "enemy")
+		_select_option(attribute, "none")
+		second_effect_enabled.button_pressed = false
+		_refresh_second_effect_controls()
+		target.disabled = true
+		attribute.disabled = true
+		power_label.text = (
+			"買う数" if effect_name == "buy"
+			else ("売る上限" if effect_name == "sell" else "数値なし")
+		)
+		power.editable = effect_name != "exchange"
+		if effect_name == "exchange":
+			power.value = 0
+		elif power.value < 1:
+			power.value = 1
+		return
+	power_label.text = "数値"
 	target.disabled = false
+	var primary_is_reflect: bool = effect_name == "reflect"
+	power.editable = not primary_is_reflect
+	if primary_is_reflect:
+		power.value = 0
+	if second_effect_enabled.button_pressed and _option_key(second_effect) == "reflect":
+		second_power.value = 0
 	var all_heal: bool = _option_key(effect) == "heal"
 	if second_effect_enabled.button_pressed and _option_key(second_effect) != "heal":
 		all_heal = false
@@ -332,8 +571,43 @@ func _refresh_second_effect_controls() -> void:
 	var enabled: bool = second_effect_enabled.button_pressed
 	second_effect.disabled = not enabled
 	second_target.disabled = not enabled
-	second_power.editable = enabled
+	second_power.editable = enabled and _option_key(second_effect) != "reflect"
+	second_effect_chance.editable = enabled
 	second_weight.editable = enabled
+
+func _refresh_special_effect_options() -> void:
+	var previous: String = _option_key(special_effect)
+	var effect_names: Array[String] = [_option_key(effect)]
+	if second_effect_enabled.button_pressed:
+		effect_names.append(_option_key(second_effect))
+	var has_attack_role := false
+	var has_defense_role: bool = _option_key(card_type) == "armor"
+	for effect_name: String in effect_names:
+		if effect_name in ["attack", "buff"]:
+			has_attack_role = true
+		if effect_name in ["guard", "reflect"]:
+			has_defense_role = true
+	var options: Array = [["", "なし"]]
+	if has_attack_role:
+		options.append_array(ATTACK_SPECIAL_OPTIONS)
+	if has_defense_role:
+		options.append_array(DEFENSE_SPECIAL_OPTIONS)
+	_fill_options(special_effect, options)
+	_select_option(special_effect, previous)
+	if _option_key(special_effect) != previous:
+		_select_option(special_effect, "")
+	_refresh_special_attribute_visibility()
+
+func _refresh_special_attribute_visibility() -> void:
+	var visible_for_change: bool = _option_key(special_effect) == "attribute_change"
+	special_attribute_label.visible = visible_for_change
+	special_attribute.visible = visible_for_change
+
+func _refresh_cost_controls() -> void:
+	var has_cost: bool = _option_key(cost_resource) != "none"
+	cost_amount.editable = has_cost
+	if not has_cost:
+		cost_amount.value = 0
 
 func _refresh_full_reflect_visibility() -> void:
 	# 反射を選んだときだけ「完全反射」チェックを見せる。
@@ -346,23 +620,37 @@ func _refresh_full_reflect_visibility() -> void:
 
 func _update_rarity_preview() -> void:
 	var temp: Dictionary = {
+		"type": _option_key(card_type),
 		"power": int(power.value),
 		"effect": _option_key(effect),
 		"target": _option_key(target),
+		"attribute": _option_key(attribute),
 		"chance": int(chance.value),
 		"effect_mode": _option_key(effect_mode),
 		"effects": [{
 			"effect": _option_key(effect),
 			"power": int(power.value),
 			"target": _option_key(target),
+			"chance": int(first_effect_chance.value),
 			"weight": int(weight1.value),
 		}],
+		"tags": _parse_tags(tags_edit.text),
+		"special_effect": _option_key(special_effect),
+		"special_attribute": _option_key(special_attribute),
+		"cost": {
+			"resource": _option_key(cost_resource),
+			"amount": int(cost_amount.value),
+		},
+		"price": int(price.value),
 	}
+	if full_reflect_check.button_pressed and "full_reflect" not in temp["tags"]:
+		temp["tags"].append("full_reflect")
 	if second_effect_enabled.button_pressed:
 		temp["effects"].append({
 			"effect": _option_key(second_effect),
 			"power": int(second_power.value),
 			"target": _option_key(second_target),
+			"chance": int(second_effect_chance.value),
 			"weight": int(second_weight.value),
 		})
 	var rarity: String = CardStore.auto_rarity(temp)
@@ -520,20 +808,30 @@ func _apply_help_tooltips() -> void:
 	player_name_edit.tooltip_text = "対戦相手に表示される名前です。"
 	host_button.tooltip_text = "自分がホスト（親）になって部屋を開きます。"
 	join_button.tooltip_text = "ホストのIPとポートを入力してから押すと部屋に参加します。"
-	submit_cards_button.tooltip_text = "作ったカードを画像ごとホストへ送ります。"
-	start_game_button.tooltip_text = "ホスト用。全員のカードが集まったら押すとバトルが始まります。"
+	start_game_button.tooltip_text = "ホスト用。共通デッキが5枚以上ならバトルを始めます。"
 	debug_bot_button.tooltip_text = "動作確認用。ランダムに行動する練習相手を1体追加します。"
+	deck_select.tooltip_text = "保存済みデッキを切り替えます。選択中の1つが対戦に使われます。"
+	deck_name_edit.tooltip_text = "新規作成または名前変更に使うデッキ名です。"
+	add_card_button.tooltip_text = "選んだ作成済みカードを使用デッキへ追加します。"
+	remove_card_button.tooltip_text = "選んだカードを使用デッキから外します。"
 	name_edit.tooltip_text = "カードの名前。"
 	description_edit.tooltip_text = "カードに書く説明・フレーバーテキスト。"
 	card_type.tooltip_text = "武器・防具・奇跡・特殊のどれかを選びます。"
-	target.tooltip_text = "効果が誰に向くか（敵1体・自分・敵全体・全員）。"
+	target.tooltip_text = "効果が誰に向くか（敵1体・自分・全＝敵全体・（全）＝敵味方を区別しない全員）。"
 	effect.tooltip_text = "カードの効果（攻撃・防御・回復など）。"
 	full_reflect_check.tooltip_text = "オンにすると攻撃だけでなく、奇跡・即死などサポート系も含めて全部を跳ね返す「完全反射」になります。"
 	power.tooltip_text = "効果の強さ。攻撃なら威力、回復なら回復量。"
 	attribute.tooltip_text = "属性。防御できる相手や相性に影響します（回復のみは属性なし）。"
-	chance.tooltip_text = "この効果が発動する確率（%）。"
+	chance.tooltip_text = "カード全体が発動する確率（%）。"
+	first_effect_chance.tooltip_text = "効果1が発動する確率（%）。"
 	effect_mode.tooltip_text = "効果を2つ持つとき、両方出すか・どちらか一方を抽選するか。"
 	weight1.tooltip_text = "「どちらか一方」を選んだときの、効果1が出やすさの比率。"
 	second_effect_enabled.tooltip_text = "1枚のカードに2つ目の効果を持たせます。"
+	second_effect_chance.tooltip_text = "効果2が発動する確率（%）。"
 	second_weight.tooltip_text = "「どちらか一方」のときの効果2の比率。"
+	special_effect.tooltip_text = "カード固有の特殊効果。カードの役割に合う候補だけ表示します。"
+	special_attribute.tooltip_text = "属性変更で攻撃に上書きする属性。"
+	cost_resource.tooltip_text = "カード使用時に最初に支払うリソース。なしも選べます。"
+	cost_amount.tooltip_text = "使用時に支払う数量。最大99です。"
+	price.tooltip_text = "このカードを「買う」「売る」で取引するときの金額。0〜99です。"
 	tags_edit.tooltip_text = "カンマ区切りのタグ（例: full_reflect）。分類や特殊挙動に使います。"
