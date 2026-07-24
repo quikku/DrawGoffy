@@ -38,6 +38,8 @@ signal leave_requested
 @onready var hover_card_attribute_value: Label = $HoverCardDetail/Margin/Row/Details/ValueRow/AttributeValue
 @onready var hover_card_price_badge: PanelContainer = $HoverCardDetail/Margin/Row/Details/ValueRow/PriceBadge
 @onready var hover_card_price: Label = $HoverCardDetail/Margin/Row/Details/ValueRow/PriceBadge/Price
+@onready var hover_card_cost_badge: PanelContainer = $HoverCardDetail/Margin/Row/Details/ValueRow/CostBadge
+@onready var hover_card_cost: Label = $HoverCardDetail/Margin/Row/Details/ValueRow/CostBadge/Cost
 @onready var hover_card_description: Label = $HoverCardDetail/Margin/Row/Details/Description
 @onready var center_message: Label = $CenterMessage
 @onready var exchange_panel: PanelContainer = $ExchangePanel
@@ -290,6 +292,9 @@ func _show_hover_card(card: Dictionary, panel: PanelContainer = null) -> void:
 	hover_card_attribute_value.add_theme_color_override("font_color", _attribute_color(card))
 	hover_card_price.text = "¥%d" % int(card.get("price", 0))
 	hover_card_price_badge.visible = card.has("price")
+	var cost_text: String = _cost_hover_text(card)
+	hover_card_cost.text = cost_text
+	hover_card_cost_badge.visible = not cost_text.is_empty()
 	hover_card_description.text = String(card.get("description", ""))
 	var texture: Texture2D = _load_card_texture(String(card.get("image_path", "")))
 	hover_card_art.texture = texture
@@ -1358,7 +1363,7 @@ func _effect_short_label(effect: String) -> String:
 func _attribute_label(card: Dictionary) -> String:
 	return _attribute_label_from_name(String(card.get("attribute", "none")))
 
-func _card_value_text(card: Dictionary, _show_price: bool = false) -> String:
+func _card_value_text(card: Dictionary, show_cost: bool = false) -> String:
 	if _is_trade_buy(card):
 		return "買う%d枚" % maxi(1, int(card.get("power", 1)))
 	if _is_trade_sell(card):
@@ -1385,7 +1390,7 @@ func _card_value_text(card: Dictionary, _show_price: bool = false) -> String:
 		separator.join(parts),
 		"" if random_mode else _chance_suffix(card),
 		special_suffix,
-		_cost_suffix(card),
+		_cost_suffix(card) if show_cost else "",
 	]
 
 func _special_effect_label(card: Dictionary) -> String:
@@ -1417,7 +1422,7 @@ func _random_effect_percent(card: Dictionary, effect_index: int) -> int:
 	var branch_chance: float = maxi(1, int(effect_entry.get("weight", 1))) / float(total_weight)
 	return int(round(100.0 * card_chance * branch_chance * effect_chance))
 
-func _hand_card_value_text(card: Dictionary) -> String:
+func _hand_card_value_text(card: Dictionary, show_cost: bool = false) -> String:
 	if _is_trade_buy(card):
 		return "買%d" % maxi(1, int(card.get("power", 1)))
 	if _is_trade_sell(card):
@@ -1452,21 +1457,29 @@ func _hand_card_value_text(card: Dictionary) -> String:
 	return "%s%s%s" % [
 		separator.join(parts),
 		"" if String(card.get("effect_mode", "all")) == "random_one" else _chance_suffix(card),
-		_cost_suffix(card),
+		_cost_suffix(card) if show_cost else "",
 	]
 
 func _cost_suffix(card: Dictionary) -> String:
+	var text: String = _cost_text(card)
+	return " %s" % text if not text.is_empty() else ""
+
+func _cost_hover_text(card: Dictionary) -> String:
+	var text: String = _cost_text(card)
+	return "消費%s" % text if not text.is_empty() else ""
+
+func _cost_text(card: Dictionary) -> String:
 	var cost: Dictionary = card.get("cost", {}) if card.get("cost", {}) is Dictionary else {}
 	var amount: int = int(cost.get("amount", 0))
 	if amount <= 0:
 		return ""
 	match String(cost.get("resource", "none")):
 		"gold":
-			return " ¥%d" % amount
+			return "¥%d" % amount
 		"mp":
-			return " MP%d" % amount
+			return "MP%d" % amount
 		"hp":
-			return " HP%d" % amount
+			return "HP%d" % amount
 	return ""
 
 func _chance_suffix(card: Dictionary) -> String:
@@ -1584,6 +1597,12 @@ func _apply_theme() -> void:
 	hover_price_style.set_corner_radius_all(23)
 	hover_card_price_badge.add_theme_stylebox_override("panel", hover_price_style)
 	hover_card_price.add_theme_color_override("font_color", Color("#40535b"))
+	var hover_cost_style: StyleBoxFlat = _rounded_style(
+		Color("#eef7ff"), Color("#4d86ff"), 2
+	)
+	hover_cost_style.set_corner_radius_all(4)
+	hover_card_cost_badge.add_theme_stylebox_override("panel", hover_cost_style)
+	hover_card_cost.add_theme_color_override("font_color", Color("#3f66c8"))
 	selected_card_panel.add_theme_stylebox_override("panel", _rounded_style(Color("#d9ffd4"), Color("#35aa80"), 3))
 	selected_card_name.add_theme_color_override("font_color", Color("#335a83"))
 	selected_card_description.add_theme_color_override("font_color", Color("#40535b"))

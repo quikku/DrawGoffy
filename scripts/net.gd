@@ -87,6 +87,10 @@ func send_my_cards(cards: Array) -> void:
 		var received: Array = CardStore.replace_cards_from_peer(cards, 1)
 		_broadcast_cards()
 		status_changed.emit("使用デッキを%d枚で更新しました。" % received.size())
+	elif multiplayer.get_unique_id() == 1:
+		# 自分の peer_id が 1（ホスト/オフラインの既定 peer）だと、自分宛の
+		# RPC は送れずエラーになる。リモートクライアントでない場合は何もしない。
+		return
 	else:
 		_submit_cards.rpc_id(1, cards)
 		status_changed.emit("使用デッキをホストへ自動送信しました。")

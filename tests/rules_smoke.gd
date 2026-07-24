@@ -1371,10 +1371,12 @@ func _init() -> void:
 	assert("特殊:2回攻撃" in battle_ui._card_value_text({
 		"effect": "attack", "power": 5, "special_effect": "double_attack",
 	}))
-	assert("MP5" in battle_ui._card_value_text({
+	var hover_cost_card := {
 		"effect": "attack", "power": 5,
 		"cost": {"resource": "mp", "amount": 5},
-	}))
+	}
+	assert("MP5" not in battle_ui._card_value_text(hover_cost_card))
+	assert(battle_ui._cost_hover_text(hover_cost_card) == "消費MP5")
 	assert(battle_ui._chance_suffix({"chance": 75}) == " 75%")
 	assert(battle_ui._card_kind_label(attack_and_guard) == "攻／守")
 	assert(battle_ui._can_play_in_action(healing_armor))

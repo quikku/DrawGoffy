@@ -331,6 +331,19 @@ horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 16
 
+[node name="CostBadge" type="PanelContainer" parent="HoverCardDetail/Margin/Row/Details/ValueRow"]
+visible = false
+custom_minimum_size = Vector2(74, 30)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Cost" type="Label" parent="HoverCardDetail/Margin/Row/Details/ValueRow/CostBadge"]
+layout_mode = 2
+text = "消費MP6"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 16
+
 [node name="Description" type="Label" parent="HoverCardDetail/Margin/Row/Details"]
 layout_mode = 2
 size_flags_vertical = 3
